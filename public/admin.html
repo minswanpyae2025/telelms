@@ -122,7 +122,20 @@
             <div id="section-paymentMethods" class="section" style="display:none;">
                 <div class="section-header">
                     <h2>ငွေပေးချေမှုစနစ်များ</h2>
-                    <button class="btn" onclick="savePaymentMethod()">အသစ်ထည့်မည်</button>
+                    <button class="btn" onclick="document.getElementById('pmFormModal').style.display='block'">အသစ်ထည့်မည်</button>
+                </div>
+                <div id="pmFormModal" style="display:none; background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
+                    <h3>ငွေပေးချေမှုစနစ်သစ် ထည့်ရန်</h3>
+                    <input type="text" id="pmName" placeholder="ဘဏ်/အကောင့် အမည် (ဥပမာ KBZ Pay)">
+                    <input type="text" id="pmAccName" placeholder="အကောင့်ပိုင်ရှင် အမည်">
+                    <input type="text" id="pmAccNumber" placeholder="အကောင့်နံပါတ်">
+                    <textarea id="pmInstructions" placeholder="အခြားလမ်းညွှန်ချက်များ..."></textarea>
+                    <label style="display:block; margin-bottom:8px; font-size:14px; color:#475569;">QR Code ပုံစံတင်ရန် (Optional)</label>
+                    <input type="file" id="pmQR" accept="image/*" style="margin-bottom:15px;">
+                    <div>
+                        <button class="btn btn-success" onclick="savePaymentMethod()">သိမ်းဆည်းမည်</button>
+                        <button class="btn btn-danger" onclick="document.getElementById('pmFormModal').style.display='none'">ပိတ်မည်</button>
+                    </div>
                 </div>
                 <table id="pmTable">
                     <thead><tr><th>အမည်</th><th class="actions-col">လုပ်ဆောင်ချက်</th></tr></thead>

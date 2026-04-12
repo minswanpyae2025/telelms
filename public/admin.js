@@ -91,15 +91,30 @@ async function loadPaymentMethods() {
     d.forEach(r => b.innerHTML+=`<tr><td>${escapeHTML(r.name)}</td><td class="actions-col"><button class="btn btn-danger" onclick="apiCall('/admin/payment-methods/${r.id}', {method:'DELETE'}).then(loadPaymentMethods)">ဖျက်မည်</button></td></tr>`);
 }
 async function savePaymentMethod() {
-    const name = prompt('ဘဏ်/အကောင့် အမည် ထည့်ပါ (ဥပမာ KBZ Pay)');
-    if(!name) return;
-    const account_name = prompt('အကောင့်ပိုင်ရှင် အမည် ထည့်ပါ');
-    const account_number = prompt('အကောင့်နံပါတ် ထည့်ပါ');
+    const name = document.getElementById('pmName').value;
+    if(!name) { alert("အမည် ထည့်သွင်းပေးပါ။"); return; }
+
+    const account_name = document.getElementById('pmAccName').value;
+    const account_number = document.getElementById('pmAccNumber').value;
+    const instructions = document.getElementById('pmInstructions').value;
+    const qrFile = document.getElementById('pmQR').files[0];
+
     const fd=new FormData();
     fd.append('name', name);
     fd.append('account_name', account_name);
     fd.append('account_number', account_number);
+    fd.append('instructions', instructions);
+    if(qrFile) fd.append('qr_image', qrFile);
+
     await fetch('/api/admin/payment-methods', {method:'POST', headers:{'x-admin-password':adminToken}, body:fd});
+
+    document.getElementById('pmName').value = '';
+    document.getElementById('pmAccName').value = '';
+    document.getElementById('pmAccNumber').value = '';
+    document.getElementById('pmInstructions').value = '';
+    document.getElementById('pmQR').value = '';
+    document.getElementById('pmFormModal').style.display = 'none';
+
     loadPaymentMethods();
 }
 

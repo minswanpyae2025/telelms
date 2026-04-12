@@ -70,4 +70,4 @@ bot.on('callback_query', async (query) => {
     }
 });
 
-module.exports = { bot, notifyAdminPayment, notifyUserApproval, notifyUserRejection };
+module.exports = { get bot() { return bot; }, notifyAdminPayment, notifyUserApproval, notifyUserRejection };

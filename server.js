@@ -123,7 +123,7 @@ app.post('/api/payments', validateTelegramWebAppData, upload.single('screenshot'
 
 // Admin
 app.get('/api/admin/users', validateAdminData, (req, res) => db.all('SELECT * FROM users', (err, rows) => res.json(rows)));
-app.get('/api/admin/payments', validateAdminData, (req, res) => db.all(`SELECT p.*, u.first_name, u.username, c.title as course_title, pm.name as payment_method_name FROM payments p JOIN users u ON p.user_id=u.id JOIN courses c ON p.course_id=c.id JOIN payment_methods pm ON p.payment_method_id=pm.id`, (err, rows) => res.json(rows)));
+app.get('/api/admin/payments', validateAdminData, (req, res) => db.all(`SELECT p.*, u.first_name, u.username, c.title as course_title, pm.name as payment_method_name FROM payments p JOIN users u ON p.user_id=u.id JOIN courses c ON p.course_id=c.id LEFT JOIN payment_methods pm ON p.payment_method_id=pm.id`, (err, rows) => res.json(rows)));
 app.post('/api/admin/payments/:id/approve', validateAdminData, (req, res) => db.run(`UPDATE payments SET status='approved', admin_note=? WHERE id=?`, [req.body.note, req.params.id], ()=> {
     db.get('SELECT p.*, u.telegram_id, c.title FROM payments p JOIN users u ON p.user_id=u.id JOIN courses c ON p.course_id=c.id WHERE p.id=?', [req.params.id], (err, r) => {
         try { require('./bot').notifyUserApproval(r.telegram_id, r.course_id, r.title, req.body.note); } catch(e){}
