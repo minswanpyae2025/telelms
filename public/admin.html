@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+</head>
+<body>
+    <h2>Admin Login</h2>
+    <input type="password" id="adminPassword">
+    <button onclick="login()">ဝင်မည်</button>
+    <div id="dashboard" style="display:none;">
+        <h3 style="text-align:center;">LMS Admin</h3>
+        <button onclick="showSection('roadmaps')">Roadmaps</button>
+        <button onclick="showSection('courses')">Courses</button>
+        <button onclick="showSection('modules')">Modules</button>
+        <button onclick="showSection('announcements')">Announcements</button>
+        <button onclick="showSection('paymentMethods')">Payment Methods</button>
+        <button onclick="showSection('payments')">Payments</button>
+        <button onclick="showSection('users')">Users</button>
+
+        <div id="section-roadmaps" class="section">
+            <h2>Roadmaps</h2><button onclick="saveRoadmap()">အသစ်ထည့်မည်</button><table id="roadmapsTable"><tbody></tbody></table>
+        </div>
+        <div id="section-courses" class="section" style="display:none;">
+            <h2>Courses</h2><button onclick="saveCourse()">အသစ်ထည့်မည်</button><table id="coursesTable"><tbody></tbody></table>
+        </div>
+        <div id="section-modules" class="section" style="display:none;">
+            <h2>Modules & Lessons</h2><button onclick="saveModule()">Module</button><button onclick="saveLesson()">Lesson</button><table id="modulesTable"><tbody></tbody></table>
+        </div>
+        <div id="section-announcements" class="section" style="display:none;">
+            <h2>Announcements</h2><button onclick="saveAnnouncement()">အသစ်ထည့်မည်</button><table id="annTable"><tbody></tbody></table>
+        </div>
+        <div id="section-paymentMethods" class="section" style="display:none;">
+            <h2>Payment Methods</h2><button onclick="savePaymentMethod()">အသစ်ထည့်မည်</button><table id="pmTable"><tbody></tbody></table>
+        </div>
+        <div id="section-payments" class="section" style="display:none;">
+            <h2>Payments</h2><select id="paymentStatusFilter" onchange="loadPayments()"><option value="">All</option><option value="pending">Pending</option></select><table id="paymentsTable"><tbody></tbody></table>
+        </div>
+        <div id="section-users" class="section" style="display:none;">
+            <h2>Users</h2><table id="usersTable"><tbody></tbody></table>
+        </div>
+    </div>
+    <script src="/admin.js"></script>
+</body>
+</html>

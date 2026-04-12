@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>LMS Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: -apple-system, sans-serif; background-color: var(--tg-theme-bg-color, #ffffff); color: var(--tg-theme-text-color, #000000); margin: 0; padding: 0; }
+        .container { padding: 16px; }
+        .header { font-size: 20px; font-weight: bold; margin-bottom: 16px; text-align: center; }
+        .card { background-color: var(--tg-theme-secondary-bg-color, #f0f0f0); border-radius: 12px; padding: 16px; margin-bottom: 12px; cursor: pointer; }
+        .btn { background-color: var(--tg-theme-button-color, #3390ec); color: var(--tg-theme-button-text-color, #ffffff); border: none; border-radius: 8px; padding: 12px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .back-btn { margin-bottom: 16px; color: var(--tg-theme-link-color, #2481cc); cursor: pointer; display: inline-block; }
+        .tabs { display: flex; justify-content: space-around; background: #e0e0e0; padding: 10px; border-radius: 8px; margin-bottom: 16px; }
+        .tab { cursor: pointer; font-weight: bold; padding: 5px 10px; border-radius: 4px;}
+        .tab.active { background: var(--tg-theme-button-color, #3390ec); color: white; }
+        .lesson-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #ccc; cursor: pointer; }
+        .completed { color: green; font-weight: bold; }
+        [id^="screen-"] { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="tabs">
+            <div class="tab active" onclick="showScreen('roadmaps')">Home</div>
+            <div class="tab" onclick="loadBookmarks()">Bookmarks</div>
+            <div class="tab" onclick="loadAnnouncements()">Announcements</div>
+            <div class="tab" onclick="showSearch()">Search</div>
+        </div>
+
+        <div id="screen-search">
+            <div class="header">ရှာဖွေရန်</div>
+            <input type="text" id="searchInput" placeholder="ရှာရန်..." style="width:100%; padding:10px; margin-bottom:10px;">
+            <button class="btn" onclick="executeSearch()">ရှာမည်</button>
+            <div id="searchResults" style="margin-top:20px;"></div>
+        </div>
+
+        <div id="screen-roadmaps">
+            <div class="header">Roadmaps</div>
+            <div id="roadmapsList"></div>
+        </div>
+
+        <div id="screen-bookmarks">
+            <div class="header">Bookmarks</div>
+            <div id="bookmarksList"></div>
+        </div>
+
+        <div id="screen-announcements">
+            <div class="header">Announcements</div>
+            <div id="announcementsList"></div>
+        </div>
+
+        <div id="screen-courses">
+            <div class="back-btn" onclick="showScreen('roadmaps')">← နောက်သို့</div>
+            <div class="header" id="coursesHeader"></div>
+            <div id="coursesList"></div>
+        </div>
+
+        <div id="screen-course-detail">
+            <div class="back-btn" onclick="showScreen('courses')">← နောက်သို့</div>
+            <div style="float: right; cursor: pointer; font-size: 24px;" id="bookmarkIcon" onclick="toggleBookmark()">☆</div>
+            <div class="header" id="detailTitle"></div>
+            <div id="progressBarContainer" style="display:none; margin-top:15px; width:100%; background-color:#ddd; border-radius:8px;"><div id="progressBar" style="height:10px; width:0%; background-color:green;"></div></div>
+            <div id="progressText" style="text-align:right; font-size:12px;"></div>
+            <div id="modulesList"></div>
+            <button class="btn" id="payBtn" onclick="showScreen('payment')">ဝယ်ယူမည်</button>
+            <div id="reviewsSection">
+                <h3>Reviews</h3><div id="reviewsList"></div>
+                <div id="reviewFormContainer" style="display:none;">
+                    <select id="reviewRating"><option value="5">5/5</option><option value="4">4/5</option><option value="3">3/5</option><option value="2">2/5</option><option value="1">1/5</option></select>
+                    <textarea id="reviewComment" style="width:100%"></textarea>
+                    <button class="btn" onclick="postReview()">ပို့မည်</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="screen-lesson">
+            <div class="back-btn" onclick="showScreen('course-detail')">← နောက်သို့</div>
+            <div class="header" id="lessonTitle"></div>
+            <div id="lessonContent"></div>
+            <div id="lessonVideo"></div>
+            <div id="lessonFile"></div>
+            <label><input type="checkbox" id="lessonCompletedCb"> Completed</label>
+        </div>
+
+        <div id="screen-payment">
+            <div class="back-btn" onclick="showScreen('course-detail')">← နောက်သို့</div>
+            <select id="pmSelect" onchange="renderSelectedPM()"><option value="">ရွေးချယ်ပါ</option></select>
+            <div id="pmDetails" style="display:none;"><div id="pmInfo"></div></div>
+            <div id="uploadSection" style="display:none;">
+                <input type="file" id="screenshotFile">
+                <button class="btn" id="processPaymentBtn" onclick="processPayment()">အတည်ပြုမည်</button>
+            </div>
+        </div>
+        
+        <div id="screen-success">
+            <div class="header">✅ အောင်မြင်ပါသည်</div>
+            <button class="btn" onclick="Telegram.WebApp.close()">ပိတ်မည်</button>
+        </div>
+    </div>
+    <script src="/app.js"></script>
+</body>
+</html>
