@@ -11,8 +11,9 @@ function showSection(id) {
     document.querySelectorAll('.section').forEach(e => e.style.display='none');
     document.getElementById('section-'+id).style.display='block';
     document.querySelectorAll('.sidebar-item').forEach(e => e.classList.remove('active'));
-    if(event && event.currentTarget) {
-        event.currentTarget.classList.add('active');
+    const navItem = document.getElementById('nav-'+id);
+    if(navItem) {
+        navItem.classList.add('active');
     }
 }
 
