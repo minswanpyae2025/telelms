@@ -5,9 +5,13 @@ const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 const fs = require('fs');
-const { put } = require('@vercel/blob');
+const { createClient } = require('@supabase/supabase-js');
 
 const db = require('./database');
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 require('./bot');
 
 const app = express();
@@ -110,9 +114,15 @@ app.post('/api/progress', validateTelegramWebAppData, (req, res) => ensureUser(r
 app.post('/api/payments', validateTelegramWebAppData, upload.single('screenshot'), async (req, res) => {
     ensureUser(req.telegramUser, async (err, uid) => {
         let screenshotUrl = '';
-        if (req.file) {
-            const blob = await put(req.file.originalname, req.file.buffer, { access: 'public' });
-            screenshotUrl = blob.url;
+        if (req.file && supabase) {
+            const filename = `${Date.now()}-${req.file.originalname}`;
+            const { data, error } = await supabase.storage.from(process.env.SUPABASE_BUCKET).upload(filename, req.file.buffer, {
+                contentType: req.file.mimetype,
+                upsert: false
+            });
+            if (data) {
+                screenshotUrl = supabase.storage.from(process.env.SUPABASE_BUCKET).getPublicUrl(filename).data.publicUrl;
+            }
         }
         db.run('INSERT INTO payments (user_id, course_id, payment_method_id, screenshot_url) VALUES (?,?,?,?) RETURNING id', [uid, req.body.course_id, req.body.payment_method_id, screenshotUrl], function() {
             try { require('./bot').notifyAdminPayment(this.lastID, req.telegramUser, req.body.course_id, screenshotUrl); } catch(e){}
@@ -148,16 +158,18 @@ app.post('/api/admin/announcements', validateAdminData, (req, res) => db.run('IN
 app.delete('/api/admin/announcements/:id', validateAdminData, (req, res) => db.run('DELETE FROM announcements WHERE id=?', [req.params.id], ()=>res.json({success:true})));
 app.post('/api/admin/payment-methods', validateAdminData, upload.single('qr_image'), async (req, res) => {
     let qrImageUrl = null;
-    if (req.file) {
-        const blob = await put(req.file.originalname, req.file.buffer, { access: 'public' });
-        qrImageUrl = blob.url;
+    if (req.file && supabase) {
+        const filename = `${Date.now()}-${req.file.originalname}`;
+        const { data, error } = await supabase.storage.from(process.env.SUPABASE_BUCKET).upload(filename, req.file.buffer, {
+            contentType: req.file.mimetype,
+            upsert: false
+        });
+        if (data) {
+            qrImageUrl = supabase.storage.from(process.env.SUPABASE_BUCKET).getPublicUrl(filename).data.publicUrl;
+        }
     }
     db.run('INSERT INTO payment_methods (name, account_name, account_number, qr_image_url, instructions) VALUES (?,?,?,?,?)', [req.body.name, req.body.account_name, req.body.account_number, qrImageUrl, req.body.instructions], ()=>res.json({success:true}));
 });
 app.delete('/api/admin/payment-methods/:id', validateAdminData, (req, res) => db.run('DELETE FROM payment_methods WHERE id=?', [req.params.id], ()=>res.json({success:true})));
 
-if (process.env.VERCEL) {
-    module.exports = app;
-} else {
-    app.listen(port, () => console.log(`Server listening on port ${port}`));
-}
+app.listen(port, () => console.log(`Server listening on port ${port}`));

@@ -17,7 +17,8 @@ async function loadRoadmaps() {
     const res = await fetch('/api/roadmaps'); const data = await res.json();
     const list = document.getElementById('roadmapsList'); list.innerHTML = '';
     data.forEach(rm => {
-        const div = document.createElement('div'); div.className = 'card'; div.innerHTML = `<b>${rm.title}</b>`;
+        const div = document.createElement('div'); div.className = 'card';
+        div.innerHTML = `<div class="card-icon">🗺️</div><div class="card-content"><b>${rm.title}</b></div>`;
         div.onclick = () => loadCourses(rm.id, rm.title); list.appendChild(div);
     });
 }
@@ -27,7 +28,8 @@ async function loadCourses(rmId, rmTitle) {
     const res = await fetch(`/api/courses?roadmap_id=${rmId}`); const data = await res.json();
     const list = document.getElementById('coursesList'); list.innerHTML = '';
     data.forEach(c => {
-        const div = document.createElement('div'); div.className = 'card'; div.innerHTML = `<b>${c.title}</b>`;
+        const div = document.createElement('div'); div.className = 'card';
+        div.innerHTML = `<div class="card-icon">📚</div><div class="card-content"><b>${c.title}</b></div>`;
         div.onclick = () => loadCourseDetail(c.id); list.appendChild(div);
     });
 }
