@@ -6,14 +6,22 @@ const token = process.env.BOT_TOKEN || 'DUMMY_TOKEN';
 const webAppUrl = process.env.WEB_APP_URL || 'https://google.com';
 
 let bot;
-if (token !== 'DUMMY_TOKEN') bot = new TelegramBot(token, { polling: true });
-else bot = { onText:()=>{}, on:()=>{}, sendMessage:()=>{} };
+if (token !== 'DUMMY_TOKEN') {
+    if (process.env.VERCEL_URL) {
+        bot = new TelegramBot(token);
+        bot.setWebHook(`https://${process.env.VERCEL_URL}/webhook/telegram`);
+    } else {
+        bot = new TelegramBot(token, { polling: true });
+    }
+} else {
+    bot = { onText:()=>{}, on:()=>{}, sendMessage:()=>{}, processUpdate:()=>{} };
+}
 
 let adminChannelId = process.env.ADMIN_CHANNEL_ID || null;
 
 bot.onText(/\/start/, (msg) => {
     const user = msg.from;
-    db.run('INSERT OR IGNORE INTO users (telegram_id, first_name, last_name, username) VALUES (?, ?, ?, ?)', [user.id, user.first_name, user.last_name, user.username]);
+    db.run('INSERT INTO users (telegram_id, first_name, last_name, username) VALUES (?, ?, ?, ?) ON CONFLICT (telegram_id) DO NOTHING', [user.id, user.first_name, user.last_name, user.username]);
     bot.sendMessage(msg.chat.id, `မင်္ဂလာပါ။ Telegram Mini App LMS မှ ကြိုဆိုပါတယ်။`, { reply_markup: { inline_keyboard: [[{ text: "သင်တန်းများကြည့်ရန် 🚀", web_app: { url: webAppUrl } }]] }});
 });
 
@@ -62,4 +70,4 @@ bot.on('callback_query', async (query) => {
     }
 });
 
-module.exports = { bot, notifyAdminPayment, notifyUserApproval, notifyUserRejection };
+module.exports = { get bot() { return bot; }, notifyAdminPayment, notifyUserApproval, notifyUserRejection };

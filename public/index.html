@@ -4,98 +4,301 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>LMS Mini App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Padauk:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; background-color: var(--tg-theme-bg-color, #ffffff); color: var(--tg-theme-text-color, #000000); margin: 0; padding: 0; }
-        .container { padding: 16px; }
-        .header { font-size: 20px; font-weight: bold; margin-bottom: 16px; text-align: center; }
-        .card { background-color: var(--tg-theme-secondary-bg-color, #f0f0f0); border-radius: 12px; padding: 16px; margin-bottom: 12px; cursor: pointer; }
-        .btn { background-color: var(--tg-theme-button-color, #3390ec); color: var(--tg-theme-button-text-color, #ffffff); border: none; border-radius: 8px; padding: 12px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .back-btn { margin-bottom: 16px; color: var(--tg-theme-link-color, #2481cc); cursor: pointer; display: inline-block; }
-        .tabs { display: flex; justify-content: space-around; background: #e0e0e0; padding: 10px; border-radius: 8px; margin-bottom: 16px; }
-        .tab { cursor: pointer; font-weight: bold; padding: 5px 10px; border-radius: 4px;}
-        .tab.active { background: var(--tg-theme-button-color, #3390ec); color: white; }
-        .lesson-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #ccc; cursor: pointer; }
-        .completed { color: green; font-weight: bold; }
-        [id^="screen-"] { display: none; }
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #ffffff);
+            --text-color: var(--tg-theme-text-color, #000000);
+            --hint-color: var(--tg-theme-hint-color, #999999);
+            --link-color: var(--tg-theme-link-color, #2481cc);
+            --button-color: var(--tg-theme-button-color, #3390ec);
+            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+            --secondary-bg-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+        }
+
+        body {
+            font-family: "Padauk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            padding-bottom: 70px; /* Space for bottom nav */
+        }
+
+        .container {
+            padding: 16px;
+        }
+
+        .header {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 24px;
+            text-align: center;
+            background: linear-gradient(90deg, var(--button-color), #8e44ad);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .card {
+            background-color: var(--secondary-bg-color);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid rgba(0,0,0,0.02);
+        }
+        .card:active {
+            transform: scale(0.96);
+        }
+        .card:hover {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .card b {
+            display: block;
+            font-size: 18px;
+            color: var(--text-color);
+            margin-bottom: 4px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--button-color) 0%, #2980b9 100%);
+            color: var(--button-text-color);
+            border: none;
+            border-radius: 12px;
+            padding: 16px;
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(51, 144, 236, 0.3);
+        }
+        .btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 5px rgba(51, 144, 236, 0.3);
+        }
+
+        .back-btn {
+            margin-bottom: 16px;
+            color: var(--link-color);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            font-weight: 500;
+        }
+        .back-btn::before {
+            content: "←";
+            margin-right: 6px;
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+            z-index: 1000;
+            border-top: 1px solid var(--secondary-bg-color);
+            padding-bottom: env(safe-area-inset-bottom, 12px);
+        }
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--hint-color);
+            cursor: pointer;
+            font-size: 12px;
+            flex: 1;
+        }
+        .nav-item .icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+        .nav-item.active {
+            color: var(--button-color);
+        }
+
+        .lesson-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--secondary-bg-color);
+            cursor: pointer;
+            background-color: var(--bg-color);
+        }
+        .lesson-item:last-child {
+            border-bottom: none;
+        }
+        .completed {
+            color: #4caf50;
+            font-weight: bold;
+        }
+
+        [id^="screen-"] {
+            display: none;
+        }
+
+        /* Form inputs */
+        input[type="text"], input[type="password"], select, textarea {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 12px;
+            border: 1px solid var(--secondary-bg-color);
+            border-radius: 8px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+        input[type="text"]:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--button-color);
+        }
+
+        .module-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid var(--secondary-bg-color);
+        }
+
+        .progress-container {
+            width: 100%;
+            background-color: var(--secondary-bg-color);
+            border-radius: 8px;
+            height: 10px;
+            overflow: hidden;
+            margin: 15px 0 5px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #4caf50;
+            transition: width 0.3s ease;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="tabs">
-            <div class="tab active" onclick="showScreen('roadmaps')">Home</div>
-            <div class="tab" onclick="loadBookmarks()">Bookmarks</div>
-            <div class="tab" onclick="loadAnnouncements()">Announcements</div>
-            <div class="tab" onclick="showSearch()">Search</div>
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="showScreen('roadmaps')">
+            <span class="icon">🏠</span>
+            <span>ပင်မစာမျက်နှာ</span>
         </div>
+        <div class="nav-item" onclick="loadBookmarks()">
+            <span class="icon">🔖</span>
+            <span>မှတ်သားချက်များ</span>
+        </div>
+        <div class="nav-item" onclick="loadAnnouncements()">
+            <span class="icon">📢</span>
+            <span>ကြေညာချက်များ</span>
+        </div>
+        <div class="nav-item" onclick="showSearch()">
+            <span class="icon">🔍</span>
+            <span>ရှာဖွေမည်</span>
+        </div>
+    </div>
 
+    <div class="container">
         <div id="screen-search">
             <div class="header">ရှာဖွေရန်</div>
-            <input type="text" id="searchInput" placeholder="ရှာရန်..." style="width:100%; padding:10px; margin-bottom:10px;">
+            <input type="text" id="searchInput" placeholder="ရှာရန်...">
             <button class="btn" onclick="executeSearch()">ရှာမည်</button>
             <div id="searchResults" style="margin-top:20px;"></div>
         </div>
 
         <div id="screen-roadmaps">
-            <div class="header">Roadmaps</div>
+            <div class="header">သင်ယူမှုလမ်းကြောင်းများ</div>
             <div id="roadmapsList"></div>
         </div>
 
         <div id="screen-bookmarks">
-            <div class="header">Bookmarks</div>
+            <div class="header">မှတ်သားထားသော သင်တန်းများ</div>
             <div id="bookmarksList"></div>
         </div>
 
         <div id="screen-announcements">
-            <div class="header">Announcements</div>
+            <div class="header">ကြေညာချက်များ</div>
             <div id="announcementsList"></div>
         </div>
 
         <div id="screen-courses">
-            <div class="back-btn" onclick="showScreen('roadmaps')">← နောက်သို့</div>
+            <div class="back-btn" onclick="showScreen('roadmaps')">နောက်သို့</div>
             <div class="header" id="coursesHeader"></div>
             <div id="coursesList"></div>
         </div>
 
         <div id="screen-course-detail">
-            <div class="back-btn" onclick="showScreen('courses')">← နောက်သို့</div>
-            <div style="float: right; cursor: pointer; font-size: 24px;" id="bookmarkIcon" onclick="toggleBookmark()">☆</div>
+            <div class="back-btn" onclick="showScreen('courses')">နောက်သို့</div>
+            <div style="float: right; cursor: pointer; font-size: 24px; color: var(--button-color);" id="bookmarkIcon" onclick="toggleBookmark()">☆</div>
             <div class="header" id="detailTitle"></div>
-            <div id="progressBarContainer" style="display:none; margin-top:15px; width:100%; background-color:#ddd; border-radius:8px;"><div id="progressBar" style="height:10px; width:0%; background-color:green;"></div></div>
-            <div id="progressText" style="text-align:right; font-size:12px;"></div>
+            <div id="progressBarContainer" style="display:none;">
+                <div class="progress-container"><div id="progressBar" class="progress-bar" style="width:0%;"></div></div>
+                <div id="progressText" style="text-align:right; font-size:12px; color: var(--hint-color);"></div>
+            </div>
             <div id="modulesList"></div>
             <button class="btn" id="payBtn" onclick="showScreen('payment')">ဝယ်ယူမည်</button>
-            <div id="reviewsSection">
-                <h3>Reviews</h3><div id="reviewsList"></div>
-                <div id="reviewFormContainer" style="display:none;">
-                    <select id="reviewRating"><option value="5">5/5</option><option value="4">4/5</option><option value="3">3/5</option><option value="2">2/5</option><option value="1">1/5</option></select>
-                    <textarea id="reviewComment" style="width:100%"></textarea>
+            <div id="reviewsSection" style="margin-top: 24px;">
+                <h3 style="margin-bottom: 12px; font-size: 18px;">မှတ်ချက်များ</h3>
+                <div id="reviewsList" style="margin-bottom: 16px;"></div>
+                <div id="reviewFormContainer" style="display:none; background: var(--secondary-bg-color); padding: 12px; border-radius: 8px;">
+                    <select id="reviewRating">
+                        <option value="5">⭐⭐⭐⭐⭐ (၅/၅)</option>
+                        <option value="4">⭐⭐⭐⭐ (၄/၅)</option>
+                        <option value="3">⭐⭐⭐ (၃/၅)</option>
+                        <option value="2">⭐⭐ (၂/၅)</option>
+                        <option value="1">⭐ (၁/၅)</option>
+                    </select>
+                    <textarea id="reviewComment" placeholder="သင်၏မှတ်ချက်ကိုရေးပါ..." rows="3"></textarea>
                     <button class="btn" onclick="postReview()">ပို့မည်</button>
                 </div>
             </div>
         </div>
 
         <div id="screen-lesson">
-            <div class="back-btn" onclick="showScreen('course-detail')">← နောက်သို့</div>
+            <div class="back-btn" onclick="showScreen('course-detail')">နောက်သို့</div>
             <div class="header" id="lessonTitle"></div>
-            <div id="lessonContent"></div>
-            <div id="lessonVideo"></div>
-            <div id="lessonFile"></div>
-            <label><input type="checkbox" id="lessonCompletedCb"> Completed</label>
+            <div id="lessonContent" style="line-height: 1.6; margin-bottom: 16px;"></div>
+            <div id="lessonVideo" style="margin-bottom: 16px;"></div>
+            <div id="lessonFile" style="margin-bottom: 16px;"></div>
+            <label style="display: flex; align-items: center; background: var(--secondary-bg-color); padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                <input type="checkbox" id="lessonCompletedCb" style="width: 20px; height: 20px; margin-right: 12px;">
+                ပြီးဆုံးပါပြီ
+            </label>
         </div>
 
         <div id="screen-payment">
-            <div class="back-btn" onclick="showScreen('course-detail')">← နောက်သို့</div>
-            <select id="pmSelect" onchange="renderSelectedPM()"><option value="">ရွေးချယ်ပါ</option></select>
-            <div id="pmDetails" style="display:none;"><div id="pmInfo"></div></div>
+            <div class="back-btn" onclick="showScreen('course-detail')">နောက်သို့</div>
+            <div class="header">ငွေပေးချေမှု</div>
+            <select id="pmSelect" onchange="renderSelectedPM()">
+                <option value="">ငွေပေးချေမည့်နည်းလမ်း ရွေးချယ်ပါ</option>
+            </select>
+            <div id="pmDetails" style="display:none; background: var(--secondary-bg-color); padding: 16px; border-radius: 8px; margin-bottom: 16px; text-align: center;">
+                <div id="pmInfo" style="font-size: 16px; margin-bottom: 12px;"></div>
+            </div>
             <div id="uploadSection" style="display:none;">
-                <input type="file" id="screenshotFile">
+                <label style="display: block; margin-bottom: 8px; font-weight: bold;">ငွေလွှဲပြေစာ (Screenshot) တင်ရန်</label>
+                <input type="file" id="screenshotFile" accept="image/*" style="background: var(--secondary-bg-color); padding: 10px; border-radius: 8px;">
                 <button class="btn" id="processPaymentBtn" onclick="processPayment()">အတည်ပြုမည်</button>
             </div>
         </div>
         
         <div id="screen-success">
-            <div class="header">✅ အောင်မြင်ပါသည်</div>
+            <div class="header" style="color: #4caf50; margin-top: 40px; font-size: 24px;">✅ အောင်မြင်ပါသည်</div>
+            <p style="text-align: center; margin-bottom: 30px; color: var(--hint-color);">ငွေပေးချေမှုကို အတည်ပြုရန် စောင့်ဆိုင်းပေးပါ။</p>
             <button class="btn" onclick="Telegram.WebApp.close()">ပိတ်မည်</button>
         </div>
     </div>

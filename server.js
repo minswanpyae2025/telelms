@@ -5,13 +5,13 @@ const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 const fs = require('fs');
+const { put } = require('@vercel/blob');
 
 const db = require('./database');
-if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 require('./bot');
 
 const app = express();
-const storage = multer.diskStorage({ destination: (req, file, cb) => cb(null, 'uploads/'), filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)) });
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 const port = process.env.PORT || 3000;
 
@@ -19,7 +19,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.post('/webhook/telegram', (req, res) => {
+    try { require('./bot').bot.processUpdate(req.body); } catch(e) { console.error("Webhook error:", e); }
+    res.sendStatus(200);
+});
 
 function validateTelegramWebAppData(req, res, next) {
     const initData = req.headers['x-telegram-init-data'];
@@ -37,7 +41,7 @@ function validateAdminData(req, res, next) {
 }
 
 function ensureUser(tgUser, cb) {
-    db.run('INSERT OR IGNORE INTO users (telegram_id, first_name, last_name, username) VALUES (?,?,?,?)', [tgUser.id, tgUser.first_name, tgUser.last_name, tgUser.username], (err) => {
+    db.run('INSERT INTO users (telegram_id, first_name, last_name, username) VALUES (?,?,?,?) ON CONFLICT (telegram_id) DO NOTHING', [tgUser.id, tgUser.first_name, tgUser.last_name, tgUser.username], (err) => {
         if(err) return cb(err);
         db.get('SELECT id FROM users WHERE telegram_id=?', [tgUser.id], (err, row) => cb(err, row?row.id:null));
     });
@@ -60,7 +64,7 @@ app.post('/api/courses/:id/reviews', validateTelegramWebAppData, (req, res) => {
     ensureUser(req.telegramUser, (err, userId) => {
         db.get(`SELECT id FROM payments WHERE user_id=? AND course_id=? AND status='approved'`, [userId, req.params.id], (err, p) => {
             if(!p) return res.status(403).json({error:'Must be enrolled'});
-            db.run(`INSERT INTO reviews (user_id,course_id,rating,comment) VALUES (?,?,?,?) ON CONFLICT DO UPDATE SET rating=?, comment=?`, [userId, req.params.id, req.body.rating, req.body.comment, req.body.rating, req.body.comment], (err) => res.json({success:true}));
+            db.run(`INSERT INTO reviews (user_id,course_id,rating,comment) VALUES (?,?,?,?) ON CONFLICT (user_id, course_id) DO UPDATE SET rating=EXCLUDED.rating, comment=EXCLUDED.comment`, [userId, req.params.id, req.body.rating, req.body.comment], (err) => res.json({success:true}));
         });
     });
 });
@@ -100,13 +104,18 @@ app.get('/api/lessons/:id', validateTelegramWebAppData, (req, res) => {
 
 // Protected UI
 app.get('/api/bookmarks', validateTelegramWebAppData, (req, res) => ensureUser(req.telegramUser, (err, uid) => db.all('SELECT c.* FROM courses c JOIN bookmarks b ON c.id=b.course_id WHERE b.user_id=?', [uid], (err, rows) => res.json(rows))));
-app.post('/api/bookmarks', validateTelegramWebAppData, (req, res) => ensureUser(req.telegramUser, (err, uid) => db.run('INSERT OR IGNORE INTO bookmarks(user_id,course_id) VALUES (?,?)', [uid, req.body.course_id], ()=>res.json({success:true}))));
+app.post('/api/bookmarks', validateTelegramWebAppData, (req, res) => ensureUser(req.telegramUser, (err, uid) => db.run('INSERT INTO bookmarks(user_id,course_id) VALUES (?,?) ON CONFLICT (user_id, course_id) DO NOTHING', [uid, req.body.course_id], ()=>res.json({success:true}))));
 app.delete('/api/bookmarks/:cid', validateTelegramWebAppData, (req, res) => ensureUser(req.telegramUser, (err, uid) => db.run('DELETE FROM bookmarks WHERE user_id=? AND course_id=?', [uid, req.params.cid], ()=>res.json({success:true}))));
-app.post('/api/progress', validateTelegramWebAppData, (req, res) => ensureUser(req.telegramUser, (err, uid) => db.run('INSERT INTO progress (user_id,lesson_id,completed) VALUES (?,?,?) ON CONFLICT DO UPDATE SET completed=?', [uid, req.body.lesson_id, req.body.completed?1:0, req.body.completed?1:0], ()=>res.json({success:true}))));
-app.post('/api/payments', validateTelegramWebAppData, upload.single('screenshot'), (req, res) => {
-    ensureUser(req.telegramUser, (err, uid) => {
-        db.run('INSERT INTO payments (user_id, course_id, payment_method_id, screenshot_url) VALUES (?,?,?,?)', [uid, req.body.course_id, req.body.payment_method_id, '/uploads/'+req.file.filename], function() {
-            try { require('./bot').notifyAdminPayment(this.lastID, req.telegramUser, req.body.course_id, '/uploads/'+req.file.filename); } catch(e){}
+app.post('/api/progress', validateTelegramWebAppData, (req, res) => ensureUser(req.telegramUser, (err, uid) => db.run('INSERT INTO progress (user_id,lesson_id,completed) VALUES (?,?,?) ON CONFLICT (user_id, lesson_id) DO UPDATE SET completed=EXCLUDED.completed', [uid, req.body.lesson_id, req.body.completed?true:false], ()=>res.json({success:true}))));
+app.post('/api/payments', validateTelegramWebAppData, upload.single('screenshot'), async (req, res) => {
+    ensureUser(req.telegramUser, async (err, uid) => {
+        let screenshotUrl = '';
+        if (req.file) {
+            const blob = await put(req.file.originalname, req.file.buffer, { access: 'public' });
+            screenshotUrl = blob.url;
+        }
+        db.run('INSERT INTO payments (user_id, course_id, payment_method_id, screenshot_url) VALUES (?,?,?,?) RETURNING id', [uid, req.body.course_id, req.body.payment_method_id, screenshotUrl], function() {
+            try { require('./bot').notifyAdminPayment(this.lastID, req.telegramUser, req.body.course_id, screenshotUrl); } catch(e){}
             res.json({success:true});
         });
     });
@@ -114,7 +123,7 @@ app.post('/api/payments', validateTelegramWebAppData, upload.single('screenshot'
 
 // Admin
 app.get('/api/admin/users', validateAdminData, (req, res) => db.all('SELECT * FROM users', (err, rows) => res.json(rows)));
-app.get('/api/admin/payments', validateAdminData, (req, res) => db.all(`SELECT p.*, u.first_name, u.username, c.title as course_title, pm.name as payment_method_name FROM payments p JOIN users u ON p.user_id=u.id JOIN courses c ON p.course_id=c.id JOIN payment_methods pm ON p.payment_method_id=pm.id`, (err, rows) => res.json(rows)));
+app.get('/api/admin/payments', validateAdminData, (req, res) => db.all(`SELECT p.*, u.first_name, u.username, c.title as course_title, pm.name as payment_method_name FROM payments p JOIN users u ON p.user_id=u.id JOIN courses c ON p.course_id=c.id LEFT JOIN payment_methods pm ON p.payment_method_id=pm.id`, (err, rows) => res.json(rows)));
 app.post('/api/admin/payments/:id/approve', validateAdminData, (req, res) => db.run(`UPDATE payments SET status='approved', admin_note=? WHERE id=?`, [req.body.note, req.params.id], ()=> {
     db.get('SELECT p.*, u.telegram_id, c.title FROM payments p JOIN users u ON p.user_id=u.id JOIN courses c ON p.course_id=c.id WHERE p.id=?', [req.params.id], (err, r) => {
         try { require('./bot').notifyUserApproval(r.telegram_id, r.course_id, r.title, req.body.note); } catch(e){}
@@ -137,7 +146,18 @@ app.post('/api/admin/lessons', validateAdminData, (req, res) => db.run('INSERT I
 app.delete('/api/admin/lessons/:id', validateAdminData, (req, res) => db.run('DELETE FROM lessons WHERE id=?', [req.params.id], ()=>res.json({success:true})));
 app.post('/api/admin/announcements', validateAdminData, (req, res) => db.run('INSERT INTO announcements (course_id, title, content) VALUES (?,?,?)', [req.body.course_id, req.body.title, req.body.content], ()=>res.json({success:true})));
 app.delete('/api/admin/announcements/:id', validateAdminData, (req, res) => db.run('DELETE FROM announcements WHERE id=?', [req.params.id], ()=>res.json({success:true})));
-app.post('/api/admin/payment-methods', validateAdminData, upload.single('qr_image'), (req, res) => db.run('INSERT INTO payment_methods (name, account_name, account_number, qr_image_url, instructions) VALUES (?,?,?,?,?)', [req.body.name, req.body.account_name, req.body.account_number, req.file?'/uploads/'+req.file.filename:null, req.body.instructions], ()=>res.json({success:true})));
+app.post('/api/admin/payment-methods', validateAdminData, upload.single('qr_image'), async (req, res) => {
+    let qrImageUrl = null;
+    if (req.file) {
+        const blob = await put(req.file.originalname, req.file.buffer, { access: 'public' });
+        qrImageUrl = blob.url;
+    }
+    db.run('INSERT INTO payment_methods (name, account_name, account_number, qr_image_url, instructions) VALUES (?,?,?,?,?)', [req.body.name, req.body.account_name, req.body.account_number, qrImageUrl, req.body.instructions], ()=>res.json({success:true}));
+});
 app.delete('/api/admin/payment-methods/:id', validateAdminData, (req, res) => db.run('DELETE FROM payment_methods WHERE id=?', [req.params.id], ()=>res.json({success:true})));
 
-app.listen(port, () => console.log(`Server listening on port ${port}`));
+if (process.env.VERCEL) {
+    module.exports = app;
+} else {
+    app.listen(port, () => console.log(`Server listening on port ${port}`));
+}
