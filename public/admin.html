@@ -1,46 +1,191 @@
 <!DOCTYPE html>
-<html lang="my">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TeleLMS Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .section { display: none; }
+    .section.active { display: block; }
+    .modal-overlay { background: rgba(0,0,0,0.5); }
+    .stat-card { transition: transform 0.2s; }
+    .stat-card:hover { transform: translateY(-2px); }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-approved { background: #d1fae5; color: #065f46; }
+    .status-rejected { background: #fee2e2; color: #991b1b; }
+  </style>
 </head>
-<body>
-    <h2>Admin Login</h2>
-    <input type="password" id="adminPassword">
-    <button onclick="login()">ဝင်မည်</button>
-    <div id="dashboard" style="display:none;">
-        <h3 style="text-align:center;">LMS Admin</h3>
-        <button onclick="showSection('roadmaps')">Roadmaps</button>
-        <button onclick="showSection('courses')">Courses</button>
-        <button onclick="showSection('modules')">Modules</button>
-        <button onclick="showSection('announcements')">Announcements</button>
-        <button onclick="showSection('paymentMethods')">Payment Methods</button>
-        <button onclick="showSection('payments')">Payments</button>
-        <button onclick="showSection('users')">Users</button>
+<body class="bg-gray-50 min-h-screen">
 
-        <div id="section-roadmaps" class="section">
-            <h2>Roadmaps</h2><button onclick="saveRoadmap()">အသစ်ထည့်မည်</button><table id="roadmapsTable"><tbody></tbody></table>
-        </div>
-        <div id="section-courses" class="section" style="display:none;">
-            <h2>Courses</h2><button onclick="saveCourse()">အသစ်ထည့်မည်</button><table id="coursesTable"><tbody></tbody></table>
-        </div>
-        <div id="section-modules" class="section" style="display:none;">
-            <h2>Modules & Lessons</h2><button onclick="saveModule()">Module</button><button onclick="saveLesson()">Lesson</button><table id="modulesTable"><tbody></tbody></table>
-        </div>
-        <div id="section-announcements" class="section" style="display:none;">
-            <h2>Announcements</h2><button onclick="saveAnnouncement()">အသစ်ထည့်မည်</button><table id="annTable"><tbody></tbody></table>
-        </div>
-        <div id="section-paymentMethods" class="section" style="display:none;">
-            <h2>Payment Methods</h2><button onclick="savePaymentMethod()">အသစ်ထည့်မည်</button><table id="pmTable"><tbody></tbody></table>
-        </div>
-        <div id="section-payments" class="section" style="display:none;">
-            <h2>Payments</h2><select id="paymentStatusFilter" onchange="loadPayments()"><option value="">All</option><option value="pending">Pending</option></select><table id="paymentsTable"><tbody></tbody></table>
-        </div>
-        <div id="section-users" class="section" style="display:none;">
-            <h2>Users</h2><table id="usersTable"><tbody></tbody></table>
-        </div>
+  <!-- Login -->
+  <div id="loginPage" class="flex items-center justify-center min-h-screen">
+    <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm mx-4">
+      <h1 class="text-2xl font-bold text-center mb-2">TeleLMS Admin</h1>
+      <p class="text-gray-500 text-sm text-center mb-6">Admin Dashboard Login</p>
+      <input type="password" id="adminPassword" placeholder="Password" class="w-full p-3 border rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500" onkeypress="if(event.key==='Enter')login()">
+      <button onclick="login()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition">Login</button>
+      <p id="loginError" class="text-red-500 text-sm text-center mt-3 hidden">Invalid password</p>
     </div>
-    <script src="/admin.js"></script>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="hidden">
+    <!-- Header -->
+    <header class="bg-white border-b sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+        <h1 class="text-lg font-bold text-blue-600">TeleLMS Admin</h1>
+        <button onclick="logout()" class="text-sm text-gray-500 hover:text-red-500">Logout</button>
+      </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="bg-white border-b overflow-x-auto">
+      <div class="max-w-7xl mx-auto px-4 flex gap-1">
+        <button onclick="showSection('overview')" class="nav-link px-4 py-3 text-sm font-medium whitespace-nowrap" data-section="overview">Overview</button>
+        <button onclick="showSection('roadmaps')" class="nav-link px-4 py-3 text-sm font-medium whitespace-nowrap" data-section="roadmaps">Roadmaps</button>
+        <button onclick="showSection('courses')" class="nav-link px-4 py-3 text-sm font-medium whitespace-nowrap" data-section="courses">Courses</button>
+        <button onclick="showSection('content')" class="nav-link px-4 py-3 text-sm font-medium whitespace-nowrap" data-section="content">Content</button>
+        <button onclick="showSection('payments')" class="nav-link px-4 py-3 text-sm font-medium whitespace-nowrap" data-section="payments">Payments</button>
+        <button onclick="showSection('paymentMethods')" class="nav-link px-4 py-3 text-sm font-medium whitespace-nowrap" data-section="paymentMethods">Pay Methods</button>
+        <button onclick="showSection('announcements')" class="nav-link px-4 py-3 text-sm font-medium whitespace-nowrap" data-section="announcements">Announce</button>
+        <button onclick="showSection('users')" class="nav-link px-4 py-3 text-sm font-medium whitespace-nowrap" data-section="users">Users</button>
+      </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+
+      <!-- Overview -->
+      <div id="section-overview" class="section active">
+        <h2 class="text-xl font-bold mb-4">Dashboard Overview</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div class="stat-card bg-white rounded-xl p-4 shadow-sm border">
+            <div class="text-2xl font-bold text-blue-600" id="statUsers">0</div>
+            <div class="text-sm text-gray-500">Total Users</div>
+          </div>
+          <div class="stat-card bg-white rounded-xl p-4 shadow-sm border">
+            <div class="text-2xl font-bold text-green-600" id="statCourses">0</div>
+            <div class="text-sm text-gray-500">Courses</div>
+          </div>
+          <div class="stat-card bg-white rounded-xl p-4 shadow-sm border">
+            <div class="text-2xl font-bold text-yellow-600" id="statPending">0</div>
+            <div class="text-sm text-gray-500">Pending Payments</div>
+          </div>
+          <div class="stat-card bg-white rounded-xl p-4 shadow-sm border">
+            <div class="text-2xl font-bold text-purple-600" id="statPayments">0</div>
+            <div class="text-sm text-gray-500">Total Payments</div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm border">
+          <h3 class="font-bold mb-3">Recent Pending Payments</h3>
+          <div id="recentPayments"></div>
+        </div>
+      </div>
+
+      <!-- Roadmaps -->
+      <div id="section-roadmaps" class="section">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">Roadmaps (Career Pathways)</h2>
+          <button onclick="showRoadmapForm()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">+ Add Roadmap</button>
+        </div>
+        <div id="roadmapsGrid" class="grid gap-3"></div>
+      </div>
+
+      <!-- Courses -->
+      <div id="section-courses" class="section">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">Courses</h2>
+          <button onclick="showCourseForm()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">+ Add Course</button>
+        </div>
+        <div id="coursesGrid" class="grid gap-3"></div>
+      </div>
+
+      <!-- Content (Modules & Lessons) -->
+      <div id="section-content" class="section">
+        <h2 class="text-xl font-bold mb-4">Modules & Lessons</h2>
+        <div class="flex gap-2 mb-4">
+          <select id="contentCourseFilter" onchange="loadContent()" class="p-2 border rounded-lg text-sm flex-1"></select>
+          <button onclick="showModuleForm()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium">+ Module</button>
+          <button onclick="showLessonForm()" class="bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium">+ Lesson</button>
+        </div>
+        <div id="contentList" class="space-y-3"></div>
+      </div>
+
+      <!-- Payments -->
+      <div id="section-payments" class="section">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">Payments</h2>
+          <select id="paymentStatusFilter" onchange="loadPayments()" class="p-2 border rounded-lg text-sm">
+            <option value="">All</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div id="paymentsList" class="space-y-3"></div>
+      </div>
+
+      <!-- Payment Methods -->
+      <div id="section-paymentMethods" class="section">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">Payment Methods</h2>
+          <button onclick="showPaymentMethodForm()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">+ Add Method</button>
+        </div>
+        <div id="paymentMethodsGrid" class="grid gap-3"></div>
+      </div>
+
+      <!-- Announcements -->
+      <div id="section-announcements" class="section">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">Announcements</h2>
+          <button onclick="showAnnouncementForm()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">+ Add</button>
+        </div>
+        <div id="announcementsGrid" class="grid gap-3"></div>
+      </div>
+
+      <!-- Users -->
+      <div id="section-users" class="section">
+        <h2 class="text-xl font-bold mb-4">Users</h2>
+        <div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left">ID</th>
+                <th class="px-4 py-3 text-left">Name</th>
+                <th class="px-4 py-3 text-left">Username</th>
+                <th class="px-4 py-3 text-left">Telegram ID</th>
+                <th class="px-4 py-3 text-left">Joined</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" class="fixed inset-0 z-50 hidden">
+    <div class="modal-overlay absolute inset-0" onclick="closeModal()"></div>
+    <div class="absolute inset-x-4 top-1/2 -translate-y-1/2 max-w-lg mx-auto bg-white rounded-2xl shadow-2xl p-6 z-10 max-h-[80vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold" id="modalTitle"></h3>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+      </div>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Screenshot Modal -->
+  <div id="screenshotModal" class="fixed inset-0 z-50 hidden">
+    <div class="modal-overlay absolute inset-0" onclick="closeScreenshotModal()"></div>
+    <div class="absolute inset-4 flex items-center justify-center z-10">
+      <img id="screenshotImg" class="max-w-full max-h-full rounded-xl shadow-2xl" src="" alt="Screenshot">
+    </div>
+  </div>
+
+  <script src="/admin.js"></script>
 </body>
 </html>

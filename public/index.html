@@ -1,104 +1,276 @@
 <!DOCTYPE html>
 <html lang="my">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>LMS Mini App</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        body { font-family: -apple-system, sans-serif; background-color: var(--tg-theme-bg-color, #ffffff); color: var(--tg-theme-text-color, #000000); margin: 0; padding: 0; }
-        .container { padding: 16px; }
-        .header { font-size: 20px; font-weight: bold; margin-bottom: 16px; text-align: center; }
-        .card { background-color: var(--tg-theme-secondary-bg-color, #f0f0f0); border-radius: 12px; padding: 16px; margin-bottom: 12px; cursor: pointer; }
-        .btn { background-color: var(--tg-theme-button-color, #3390ec); color: var(--tg-theme-button-text-color, #ffffff); border: none; border-radius: 8px; padding: 12px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .back-btn { margin-bottom: 16px; color: var(--tg-theme-link-color, #2481cc); cursor: pointer; display: inline-block; }
-        .tabs { display: flex; justify-content: space-around; background: #e0e0e0; padding: 10px; border-radius: 8px; margin-bottom: 16px; }
-        .tab { cursor: pointer; font-weight: bold; padding: 5px 10px; border-radius: 4px;}
-        .tab.active { background: var(--tg-theme-button-color, #3390ec); color: white; }
-        .lesson-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #ccc; cursor: pointer; }
-        .completed { color: green; font-weight: bold; }
-        [id^="screen-"] { display: none; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>TeleLMS</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg: var(--tg-theme-bg-color, #ffffff);
+      --text: var(--tg-theme-text-color, #000000);
+      --hint: var(--tg-theme-hint-color, #999999);
+      --link: var(--tg-theme-link-color, #2481cc);
+      --btn: var(--tg-theme-button-color, #3390ec);
+      --btn-text: var(--tg-theme-button-text-color, #ffffff);
+      --secondary-bg: var(--tg-theme-secondary-bg-color, #f0f0f0);
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .btn-primary { background: var(--btn); color: var(--btn-text); }
+    .btn-primary:active { opacity: 0.8; }
+    .card-base { background: var(--secondary-bg); }
+    .text-hint { color: var(--hint); }
+    .text-link { color: var(--link); }
+    .spinner { border: 3px solid var(--secondary-bg); border-top: 3px solid var(--btn); border-radius: 50%; width: 24px; height: 24px; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .fade-in { animation: fadeIn 0.2s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .badge-beginner { background: #e8f5e9; color: #2e7d32; }
+    .badge-intermediate { background: #fff3e0; color: #e65100; }
+    .badge-advanced { background: #fce4ec; color: #c62828; }
+    input, select, textarea { background: var(--secondary-bg); color: var(--text); border: 1px solid var(--hint); }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--btn); }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="tabs">
-            <div class="tab active" onclick="showScreen('roadmaps')">Home</div>
-            <div class="tab" onclick="loadBookmarks()">Bookmarks</div>
-            <div class="tab" onclick="loadAnnouncements()">Announcements</div>
-            <div class="tab" onclick="showSearch()">Search</div>
-        </div>
+  <!-- Bottom Navigation -->
+  <div class="fixed bottom-0 left-0 right-0 z-50 card-base border-t border-gray-200 px-2 py-1 flex justify-around items-center" id="bottomNav">
+    <button onclick="navigate('home')" class="nav-btn flex flex-col items-center py-1 px-3 rounded-lg text-xs" data-tab="home">
+      <span class="text-lg">🏠</span><span>Home</span>
+    </button>
+    <button onclick="navigate('my-courses')" class="nav-btn flex flex-col items-center py-1 px-3 rounded-lg text-xs" data-tab="my-courses">
+      <span class="text-lg">📖</span><span>My Courses</span>
+    </button>
+    <button onclick="navigate('bookmarks')" class="nav-btn flex flex-col items-center py-1 px-3 rounded-lg text-xs" data-tab="bookmarks">
+      <span class="text-lg">🔖</span><span>Saved</span>
+    </button>
+    <button onclick="navigate('search')" class="nav-btn flex flex-col items-center py-1 px-3 rounded-lg text-xs" data-tab="search">
+      <span class="text-lg">🔍</span><span>Search</span>
+    </button>
+    <button onclick="navigate('profile')" class="nav-btn flex flex-col items-center py-1 px-3 rounded-lg text-xs" data-tab="profile">
+      <span class="text-lg">👤</span><span>Profile</span>
+    </button>
+  </div>
 
-        <div id="screen-search">
-            <div class="header">ရှာဖွေရန်</div>
-            <input type="text" id="searchInput" placeholder="ရှာရန်..." style="width:100%; padding:10px; margin-bottom:10px;">
-            <button class="btn" onclick="executeSearch()">ရှာမည်</button>
-            <div id="searchResults" style="margin-top:20px;"></div>
-        </div>
+  <div class="pb-16">
 
-        <div id="screen-roadmaps">
-            <div class="header">Roadmaps</div>
-            <div id="roadmapsList"></div>
+    <!-- HOME -->
+    <div id="screen-home" class="screen active">
+      <div class="px-4 pt-4 pb-2">
+        <h1 class="text-xl font-bold">TeleLMS</h1>
+        <p class="text-hint text-sm mt-1">Career Pathways ရွေးချယ်ပါ</p>
+      </div>
+      <!-- Announcements Banner -->
+      <div id="announcementBanner" class="mx-4 mb-3 hidden">
+        <div class="card-base rounded-xl p-3 border-l-4 border-yellow-500">
+          <div class="flex items-center gap-2 mb-1">
+            <span>📢</span><span class="font-semibold text-sm">Announcements</span>
+          </div>
+          <div id="announcementContent" class="text-sm text-hint"></div>
         </div>
-
-        <div id="screen-bookmarks">
-            <div class="header">Bookmarks</div>
-            <div id="bookmarksList"></div>
-        </div>
-
-        <div id="screen-announcements">
-            <div class="header">Announcements</div>
-            <div id="announcementsList"></div>
-        </div>
-
-        <div id="screen-courses">
-            <div class="back-btn" onclick="showScreen('roadmaps')">← နောက်သို့</div>
-            <div class="header" id="coursesHeader"></div>
-            <div id="coursesList"></div>
-        </div>
-
-        <div id="screen-course-detail">
-            <div class="back-btn" onclick="showScreen('courses')">← နောက်သို့</div>
-            <div style="float: right; cursor: pointer; font-size: 24px;" id="bookmarkIcon" onclick="toggleBookmark()">☆</div>
-            <div class="header" id="detailTitle"></div>
-            <div id="progressBarContainer" style="display:none; margin-top:15px; width:100%; background-color:#ddd; border-radius:8px;"><div id="progressBar" style="height:10px; width:0%; background-color:green;"></div></div>
-            <div id="progressText" style="text-align:right; font-size:12px;"></div>
-            <div id="modulesList"></div>
-            <button class="btn" id="payBtn" onclick="showScreen('payment')">ဝယ်ယူမည်</button>
-            <div id="reviewsSection">
-                <h3>Reviews</h3><div id="reviewsList"></div>
-                <div id="reviewFormContainer" style="display:none;">
-                    <select id="reviewRating"><option value="5">5/5</option><option value="4">4/5</option><option value="3">3/5</option><option value="2">2/5</option><option value="1">1/5</option></select>
-                    <textarea id="reviewComment" style="width:100%"></textarea>
-                    <button class="btn" onclick="postReview()">ပို့မည်</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="screen-lesson">
-            <div class="back-btn" onclick="showScreen('course-detail')">← နောက်သို့</div>
-            <div class="header" id="lessonTitle"></div>
-            <div id="lessonContent"></div>
-            <div id="lessonVideo"></div>
-            <div id="lessonFile"></div>
-            <label><input type="checkbox" id="lessonCompletedCb"> Completed</label>
-        </div>
-
-        <div id="screen-payment">
-            <div class="back-btn" onclick="showScreen('course-detail')">← နောက်သို့</div>
-            <select id="pmSelect" onchange="renderSelectedPM()"><option value="">ရွေးချယ်ပါ</option></select>
-            <div id="pmDetails" style="display:none;"><div id="pmInfo"></div></div>
-            <div id="uploadSection" style="display:none;">
-                <input type="file" id="screenshotFile">
-                <button class="btn" id="processPaymentBtn" onclick="processPayment()">အတည်ပြုမည်</button>
-            </div>
-        </div>
-        
-        <div id="screen-success">
-            <div class="header">✅ အောင်မြင်ပါသည်</div>
-            <button class="btn" onclick="Telegram.WebApp.close()">ပိတ်မည်</button>
-        </div>
+      </div>
+      <div id="roadmapsList" class="px-4 space-y-3"></div>
+      <div id="homeLoading" class="flex justify-center py-8"><div class="spinner"></div></div>
     </div>
-    <script src="/app.js"></script>
+
+    <!-- COURSES LIST -->
+    <div id="screen-courses" class="screen">
+      <div class="px-4 pt-4 pb-2">
+        <button onclick="navigate('home')" class="text-link text-sm mb-2 inline-block">← နောက်သို့</button>
+        <h1 class="text-xl font-bold" id="coursesHeader"></h1>
+        <p class="text-hint text-sm" id="coursesDesc"></p>
+      </div>
+      <div id="coursesList" class="px-4 space-y-3"></div>
+      <div id="coursesLoading" class="flex justify-center py-8 hidden"><div class="spinner"></div></div>
+      <div id="coursesEmpty" class="text-center py-8 text-hint hidden">သင်တန်းမရှိသေးပါ</div>
+    </div>
+
+    <!-- COURSE DETAIL -->
+    <div id="screen-course-detail" class="screen">
+      <div class="px-4 pt-4 pb-2">
+        <div class="flex justify-between items-start">
+          <button onclick="goBackFromDetail()" class="text-link text-sm">← နောက်သို့</button>
+          <button id="bookmarkIcon" onclick="toggleBookmark()" class="text-2xl">☆</button>
+        </div>
+        <h1 class="text-xl font-bold mt-2" id="detailTitle"></h1>
+        <div class="flex flex-wrap gap-2 mt-2" id="detailBadges"></div>
+        <p class="text-hint text-sm mt-2" id="detailDescription"></p>
+      </div>
+      <!-- Progress -->
+      <div id="progressSection" class="px-4 mt-3 hidden">
+        <div class="flex justify-between text-xs mb-1">
+          <span class="font-medium">Progress</span>
+          <span id="progressText" class="text-hint">0%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+          <div id="progressBar" class="h-2 rounded-full bg-green-500 transition-all duration-300" style="width:0%"></div>
+        </div>
+      </div>
+      <!-- Modules -->
+      <div id="modulesList" class="px-4 mt-4 space-y-3"></div>
+      <!-- Enroll Button -->
+      <div class="px-4 mt-4" id="enrollSection">
+        <button id="payBtn" onclick="showPayment()" class="btn-primary w-full py-3 rounded-xl font-bold text-base">ဝယ်ယူမည်</button>
+      </div>
+      <!-- Reviews -->
+      <div class="px-4 mt-6 mb-4">
+        <h3 class="font-bold mb-2">Reviews</h3>
+        <div id="reviewsList" class="space-y-2"></div>
+        <div id="reviewFormContainer" class="mt-3 hidden">
+          <div class="card-base rounded-xl p-3 space-y-2">
+            <select id="reviewRating" class="w-full p-2 rounded-lg text-sm">
+              <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
+              <option value="4">⭐⭐⭐⭐ (4/5)</option>
+              <option value="3">⭐⭐⭐ (3/5)</option>
+              <option value="2">⭐⭐ (2/5)</option>
+              <option value="1">⭐ (1/5)</option>
+            </select>
+            <textarea id="reviewComment" placeholder="မှတ်ချက်ရေးပါ..." class="w-full p-2 rounded-lg text-sm" rows="2"></textarea>
+            <button onclick="postReview()" class="btn-primary w-full py-2 rounded-lg text-sm font-medium">ပို့မည်</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LESSON -->
+    <div id="screen-lesson" class="screen">
+      <div class="px-4 pt-4">
+        <button onclick="navigate('course-detail')" class="text-link text-sm mb-2 inline-block">← နောက်သို့</button>
+        <h1 class="text-lg font-bold" id="lessonTitle"></h1>
+      </div>
+      <div id="lessonVideo" class="px-4 mt-3"></div>
+      <div id="lessonContent" class="px-4 mt-3 text-sm leading-relaxed"></div>
+      <div id="lessonFile" class="px-4 mt-3"></div>
+      <div class="px-4 mt-4 mb-4">
+        <label class="card-base rounded-xl p-3 flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" id="lessonCompletedCb" class="w-5 h-5 rounded">
+          <span class="font-medium">Completed</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- PAYMENT -->
+    <div id="screen-payment" class="screen">
+      <div class="px-4 pt-4">
+        <button onclick="navigate('course-detail')" class="text-link text-sm mb-2 inline-block">← နောက်သို့</button>
+        <h1 class="text-lg font-bold">ငွေပေးချေရန်</h1>
+        <p class="text-hint text-sm mt-1" id="paymentCourseInfo"></p>
+      </div>
+      <!-- Step 1: Select Payment Method -->
+      <div class="px-4 mt-4">
+        <p class="font-medium text-sm mb-2">Step 1: ငွေလွှဲနည်း ရွေးပါ</p>
+        <div id="paymentMethodsList" class="space-y-2"></div>
+      </div>
+      <!-- Step 2: Payment Details -->
+      <div id="paymentDetails" class="px-4 mt-4 hidden">
+        <p class="font-medium text-sm mb-2">Step 2: ဤအကောင့်သို့ ငွေလွှဲပါ</p>
+        <div class="card-base rounded-xl p-4">
+          <div id="pmAccountInfo"></div>
+          <div id="pmQrImage" class="mt-3 hidden">
+            <img id="pmQrImg" class="mx-auto max-w-[200px] rounded-lg" src="" alt="QR Code">
+          </div>
+          <div id="pmInstructions" class="mt-2 text-hint text-xs"></div>
+        </div>
+      </div>
+      <!-- Step 3: Upload Screenshot -->
+      <div id="paymentUpload" class="px-4 mt-4 hidden">
+        <p class="font-medium text-sm mb-2">Step 3: ငွေလွှဲပြေစာ ပုံတင်ပါ</p>
+        <div class="card-base rounded-xl p-4">
+          <input type="file" id="screenshotFile" accept="image/*" class="w-full text-sm mb-3">
+          <div id="screenshotPreview" class="hidden mb-3">
+            <img id="previewImg" class="max-w-full rounded-lg mx-auto" src="" alt="Preview">
+          </div>
+          <button onclick="processPayment()" id="processPaymentBtn" class="btn-primary w-full py-3 rounded-xl font-bold" disabled>
+            အတည်ပြုမည်
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAYMENT SUCCESS -->
+    <div id="screen-success" class="screen">
+      <div class="flex flex-col items-center justify-center min-h-[60vh] px-4">
+        <div class="text-6xl mb-4">🎉</div>
+        <h1 class="text-xl font-bold text-center">အောင်မြင်ပါသည်!</h1>
+        <p class="text-hint text-sm text-center mt-2">Payment submitted. Admin will review and approve shortly.</p>
+        <button onclick="navigate('home')" class="btn-primary mt-6 px-8 py-3 rounded-xl font-medium">Home သို့</button>
+      </div>
+    </div>
+
+    <!-- MY COURSES -->
+    <div id="screen-my-courses" class="screen">
+      <div class="px-4 pt-4 pb-2">
+        <h1 class="text-xl font-bold">My Courses</h1>
+        <p class="text-hint text-sm mt-1">အပ်နှံထားသော သင်တန်းများ</p>
+      </div>
+      <div id="myCoursesList" class="px-4 space-y-3"></div>
+      <div id="myCoursesLoading" class="flex justify-center py-8 hidden"><div class="spinner"></div></div>
+      <div id="myCoursesEmpty" class="text-center py-12 text-hint hidden">
+        <div class="text-4xl mb-2">📖</div>
+        <p>သင်တန်း မရှိသေးပါ</p>
+        <button onclick="navigate('home')" class="text-link text-sm mt-2">Browse Courses</button>
+      </div>
+    </div>
+
+    <!-- BOOKMARKS -->
+    <div id="screen-bookmarks" class="screen">
+      <div class="px-4 pt-4 pb-2">
+        <h1 class="text-xl font-bold">Saved Courses</h1>
+      </div>
+      <div id="bookmarksList" class="px-4 space-y-3"></div>
+      <div id="bookmarksEmpty" class="text-center py-12 text-hint hidden">
+        <div class="text-4xl mb-2">🔖</div>
+        <p>Bookmark မရှိသေးပါ</p>
+      </div>
+    </div>
+
+    <!-- SEARCH -->
+    <div id="screen-search" class="screen">
+      <div class="px-4 pt-4">
+        <h1 class="text-xl font-bold mb-3">ရှာဖွေရန်</h1>
+        <div class="flex gap-2">
+          <input type="text" id="searchInput" placeholder="သင်တန်း ရှာရန်..." class="flex-1 p-3 rounded-xl text-sm">
+          <button onclick="executeSearch()" class="btn-primary px-4 rounded-xl font-medium">ရှာ</button>
+        </div>
+      </div>
+      <div id="searchResults" class="px-4 mt-4 space-y-3"></div>
+    </div>
+
+    <!-- PROFILE -->
+    <div id="screen-profile" class="screen">
+      <div class="px-4 pt-4">
+        <h1 class="text-xl font-bold mb-4">Profile</h1>
+        <div class="card-base rounded-xl p-4 flex items-center gap-4">
+          <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-2xl" id="profileAvatar">👤</div>
+          <div>
+            <div class="font-bold" id="profileName">-</div>
+            <div class="text-hint text-sm" id="profileUsername">-</div>
+          </div>
+        </div>
+      </div>
+      <!-- Payment History -->
+      <div class="px-4 mt-4">
+        <h2 class="font-bold mb-2">Payment History</h2>
+        <div id="paymentHistory" class="space-y-2"></div>
+        <div id="paymentHistoryEmpty" class="text-center py-6 text-hint hidden">
+          <p class="text-sm">Payment history မရှိသေးပါ</p>
+        </div>
+      </div>
+      <!-- Announcements -->
+      <div class="px-4 mt-4 mb-4">
+        <h2 class="font-bold mb-2">Announcements</h2>
+        <div id="announcementsList" class="space-y-2"></div>
+        <div id="announcementsEmpty" class="text-center py-6 text-hint hidden">
+          <p class="text-sm">Announcement မရှိသေးပါ</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/app.js"></script>
 </body>
 </html>
