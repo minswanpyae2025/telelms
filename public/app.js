@@ -728,7 +728,7 @@ async function startPayment(courseId) {
   }
 
   let html = `<h2 class="text-base font-bold mb-1">${_('payment_title')}</h2>
-    <p class="text-xs opacity-60 mb-4">${course?.title || ''} - ${formatMMK(course?.price_mmk)}</p>`;
+    <p class="text-xs opacity-60 mb-4">${course?.title || ''} - ${formatMMK(course?.price_mmk)}${course?.price_usdt ? ` / $${course.price_usdt} USDT` : ''}</p>`;
 
   if (hasManual && hasCrypto) {
     html += `<p class="text-sm font-medium mb-3">${_('choose_method')}</p>

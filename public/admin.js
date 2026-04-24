@@ -259,7 +259,7 @@ async function loadCourses() {
       <td>${c.id}</td>
       <td class="font-medium">${c.title}</td>
       <td class="text-xs">${rmMap[c.roadmap_id] || '-'}</td>
-      <td>${formatMMK(c.price_mmk)}</td>
+      <td>${formatMMK(c.price_mmk)}${c.price_usdt ? `<br><span class="text-xs text-indigo-500">$${c.price_usdt} USDT</span>` : ''}</td>
       <td class="text-xs">${c.difficulty}</td>
       <td class="text-xs">${c.telegram_group_id || '<span class="text-gray-300">-</span>'}</td>
       <td><div class="flex gap-1">
@@ -279,8 +279,9 @@ async function showCourseModal(existing) {
         <div class="space-y-3">
           <div><label class="form-label">ခေါင်းစဉ်</label><input class="form-input" id="c-title" value="${e.title || ''}"></div>
           <div><label class="form-label">ဖော်ပြချက်</label><textarea class="form-input" id="c-desc" rows="2">${e.description || ''}</textarea></div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-3 gap-3">
             <div><label class="form-label">စျေးနှုန်း (MMK)</label><input type="number" class="form-input" id="c-price" value="${e.price_mmk || 0}"></div>
+            <div><label class="form-label">Crypto Price (USDT)</label><input type="number" step="0.01" class="form-input" id="c-price-usdt" value="${e.price_usdt || ''}" placeholder="e.g. 5.00"></div>
             <div><label class="form-label">လမ်းကြောင်း</label><select class="form-input" id="c-roadmap">
               <option value="">ရွေးပါ</option>
               ${roadmaps.map(r => `<option value="${r.id}" ${e.roadmap_id == r.id ? 'selected' : ''}>${r.title}</option>`).join('')}
@@ -307,6 +308,7 @@ async function saveCourse(id) {
     title: document.getElementById('c-title').value,
     description: document.getElementById('c-desc').value,
     price_mmk: parseInt(document.getElementById('c-price').value) || 0,
+    price_usdt: document.getElementById('c-price-usdt').value ? parseFloat(document.getElementById('c-price-usdt').value) : null,
     roadmap_id: document.getElementById('c-roadmap').value || null,
     difficulty: document.getElementById('c-difficulty').value,
     duration_hours: document.getElementById('c-duration').value ? parseInt(document.getElementById('c-duration').value) : null,

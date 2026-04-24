@@ -543,10 +543,10 @@ app.post('/api/crypto/create-payment', parseTelegramUser, async (req, res) => {
     const apiKey = setting?.value;
     if (!apiKey) return res.status(400).json({ error: 'Crypto not configured' });
 
-    const { data: course } = await supabase.from('courses').select('title, price_mmk').eq('id', courseId).single();
+    const { data: course } = await supabase.from('courses').select('title, price_mmk, price_usdt').eq('id', courseId).single();
     if (!course) return res.status(404).json({ error: 'Course not found' });
 
-    const priceUsd = Math.max(course.price_mmk / 3500, 0.5);
+    const priceUsd = course.price_usdt ? parseFloat(course.price_usdt) : Math.max(course.price_mmk / 3500, 0.5);
     const appUrl = process.env.WEB_APP_URL || '';
     const ipnUrl = `${appUrl}/api/crypto/ipn`;
 

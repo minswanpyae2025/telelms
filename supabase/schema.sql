@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS courses (
   title TEXT NOT NULL,
   description TEXT,
   price_mmk INTEGER NOT NULL DEFAULT 0,
+  price_usdt NUMERIC(10,2) DEFAULT NULL,
   thumbnail_url TEXT,
   telegram_group_id TEXT,
   difficulty TEXT DEFAULT 'beginner' CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
