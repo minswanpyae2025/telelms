@@ -62,6 +62,7 @@ function switchPage(page) {
   else if (page === 'announcements') loadAnnouncements();
   else if (page === 'users') loadUsers();
   else if (page === 'analytics') loadAnalytics();
+  else if (page === 'settings') loadSettings();
 }
 
 function closeModal() { document.getElementById('modal-container').innerHTML = ''; }
@@ -547,4 +548,82 @@ async function exportCSV(type) {
     URL.revokeObjectURL(url);
     showToast('CSV ဒေါင်းလုဒ် လုပ်ပြီးပါပြီ');
   } catch (e) { showToast('Export မအောင်မြင်ပါ'); }
+}
+
+// --- SETTINGS ---
+async function loadSettings() {
+  try {
+    const settings = await adminApi('/admin/settings');
+
+    // Language buttons
+    const langMyBtn = document.getElementById('lang-my-btn');
+    const langEnBtn = document.getElementById('lang-en-btn');
+    const currentLang = settings.language || 'my';
+    langMyBtn.className = `btn ${currentLang === 'my' ? 'btn-primary' : 'btn-outline'}`;
+    langEnBtn.className = `btn ${currentLang === 'en' ? 'btn-primary' : 'btn-outline'}`;
+
+    // Payment toggles
+    document.getElementById('toggle-myanmar').checked = settings.myanmar_payment_enabled !== 'false';
+    document.getElementById('toggle-crypto').checked = settings.crypto_payment_enabled === 'true';
+
+    // NOWPayments config
+    document.getElementById('np-api-key').value = settings.nowpayments_api_key || '';
+    document.getElementById('np-ipn-secret').value = settings.nowpayments_ipn_secret || '';
+    document.getElementById('np-accepted-coins').value = settings.nowpayments_accepted_coins || 'btc,eth,usdt,ltc,trx';
+
+    // Load crypto payments
+    loadCryptoPayments();
+  } catch (e) { showToast('Settings load failed'); }
+}
+
+async function setAppLanguage(lang) {
+  await adminApi('/admin/settings', { method: 'PUT', body: JSON.stringify({ language: lang }) });
+  showToast(lang === 'my' ? 'Myanmar ဘာသာ သို့ ပြောင်းပြီးပါပြီ' : 'Switched to English');
+  loadSettings();
+}
+
+async function togglePaymentMethod(key, enabled) {
+  const update = {};
+  update[key] = enabled ? 'true' : 'false';
+  await adminApi('/admin/settings', { method: 'PUT', body: JSON.stringify(update) });
+  showToast(enabled ? 'Enabled' : 'Disabled');
+}
+
+async function saveNowPaymentsConfig() {
+  const apiKey = document.getElementById('np-api-key').value;
+  const ipnSecret = document.getElementById('np-ipn-secret').value;
+  const coins = document.getElementById('np-accepted-coins').value;
+  await adminApi('/admin/settings', { method: 'PUT', body: JSON.stringify({
+    nowpayments_api_key: apiKey,
+    nowpayments_ipn_secret: ipnSecret,
+    nowpayments_accepted_coins: coins,
+  })});
+  showToast('NOWPayments config saved');
+}
+
+async function loadCryptoPayments() {
+  try {
+    const payments = await adminApi('/admin/crypto-payments');
+    const el = document.getElementById('crypto-payments-table');
+    if (!payments || payments.length === 0) {
+      el.innerHTML = '<p class="text-gray-400 text-center py-6">No crypto payments yet</p>';
+      return;
+    }
+    el.innerHTML = `<table>
+      <thead><tr><th>ID</th><th>User</th><th>Course</th><th>Amount</th><th>Coin</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody>${payments.map(p => {
+        const stCls = p.status === 'finished' ? 'badge-green' : ['failed', 'expired'].includes(p.status) ? 'badge-red' : 'badge-yellow';
+        return `<tr>
+          <td>#${p.id}</td>
+          <td>${p.first_name || ''} <span class="text-xs text-gray-400">@${p.username || ''}</span></td>
+          <td>${p.course_title || ''}</td>
+          <td>${p.pay_amount || 0}</td>
+          <td class="uppercase font-bold text-xs">${p.pay_currency || ''}</td>
+          <td><span class="badge ${stCls}">${p.status}</span></td>
+          <td class="text-xs">${new Date(p.created_at).toLocaleString()}</td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
+  } catch (e) {
+    document.getElementById('crypto-payments-table').innerHTML = '<p class="text-gray-400 text-center py-6">Error loading crypto payments</p>';
+  }
 }

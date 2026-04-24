@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const supabase = require('../lib/supabase');
 const bot = require('../lib/bot');
+const np = require('../lib/nowpayments');
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -71,7 +72,8 @@ app.get('/api/courses/:id/reviews', async (req, res) => {
 app.post('/api/courses/:id/reviews', parseTelegramUser, async (req, res) => {
   const userId = await ensureUser(req.telegramUser);
   const { data: p } = await supabase.from('payments').select('id').eq('user_id', userId).eq('course_id', req.params.id).eq('status', 'approved').single();
-  if (!p) return res.status(403).json({ error: 'Must be enrolled' });
+  const { data: cp } = !p ? await supabase.from('crypto_payments').select('id').eq('user_id', userId).eq('course_id', req.params.id).eq('status', 'finished').single() : { data: null };
+  if (!p && !cp) return res.status(403).json({ error: 'Must be enrolled' });
   await supabase.from('reviews').upsert({ user_id: userId, course_id: parseInt(req.params.id), rating: parseInt(req.body.rating), comment: req.body.comment || '' }, { onConflict: 'user_id,course_id' });
   res.json({ success: true });
 });
@@ -136,7 +138,8 @@ app.get('/api/lessons/:id', parseTelegramUser, async (req, res) => {
   if (!lesson) return res.status(404).json({ error: 'Not found' });
   const userId = await ensureUser(req.telegramUser);
   const { data: pay } = await supabase.from('payments').select('id').eq('user_id', userId).eq('course_id', lesson.modules.course_id).eq('status', 'approved').single();
-  if (!pay) return res.status(403).json({ error: 'Payment required' });
+  const { data: cpay } = !pay ? await supabase.from('crypto_payments').select('id').eq('user_id', userId).eq('course_id', lesson.modules.course_id).eq('status', 'finished').single() : { data: null };
+  if (!pay && !cpay) return res.status(403).json({ error: 'Payment required' });
   const { data: prog } = await supabase.from('progress').select('completed').eq('user_id', userId).eq('lesson_id', lesson.id).single();
   res.json({ ...lesson, course_id: lesson.modules.course_id, completed: prog?.completed || false });
 });
@@ -200,7 +203,12 @@ app.get('/api/my-payments', parseTelegramUser, async (req, res) => {
 app.get('/api/my-courses', parseTelegramUser, async (req, res) => {
   const userId = await ensureUser(req.telegramUser);
   const { data } = await supabase.from('payments').select('course_id, courses(*)').eq('user_id', userId).eq('status', 'approved');
-  res.json((data || []).map(p => p.courses));
+  const { data: cryptoData } = await supabase.from('crypto_payments').select('course_id, courses(*)').eq('user_id', userId).eq('status', 'finished');
+  const manualCourses = (data || []).map(p => p.courses);
+  const cryptoCourses = (cryptoData || []).map(p => p.courses);
+  const seen = new Set();
+  const all = [...manualCourses, ...cryptoCourses].filter(c => c && !seen.has(c.id) && seen.add(c.id));
+  res.json(all);
 });
 
 // --- Quizzes ---
@@ -271,7 +279,8 @@ app.get('/api/courses/:id/discussions', async (req, res) => {
 app.post('/api/courses/:id/discussions', parseTelegramUser, async (req, res) => {
   const userId = await ensureUser(req.telegramUser);
   const { data: pay } = await supabase.from('payments').select('id').eq('user_id', userId).eq('course_id', req.params.id).eq('status', 'approved').single();
-  if (!pay) return res.status(403).json({ error: 'Must be enrolled' });
+  const { data: cpay } = !pay ? await supabase.from('crypto_payments').select('id').eq('user_id', userId).eq('course_id', req.params.id).eq('status', 'finished').single() : { data: null };
+  if (!pay && !cpay) return res.status(403).json({ error: 'Must be enrolled' });
   await supabase.from('discussions').insert({ course_id: parseInt(req.params.id), user_id: userId, message: req.body.message });
   res.json({ success: true });
 });
@@ -473,6 +482,173 @@ app.post('/api/admin/quizzes', validateAdmin, async (req, res) => {
 app.delete('/api/admin/quizzes/:id', validateAdmin, async (req, res) => {
   await supabase.from('quizzes').delete().eq('id', req.params.id);
   res.json({ success: true });
+});
+
+// ========== APP SETTINGS ==========
+
+app.get('/api/settings', async (req, res) => {
+  const { data } = await supabase.from('app_settings').select('*');
+  const settings = {};
+  (data || []).forEach(row => { settings[row.key] = row.value; });
+  res.json(settings);
+});
+
+app.get('/api/admin/settings', validateAdmin, async (req, res) => {
+  const { data } = await supabase.from('app_settings').select('*');
+  const settings = {};
+  (data || []).forEach(row => { settings[row.key] = row.value; });
+  res.json(settings);
+});
+
+app.put('/api/admin/settings', validateAdmin, async (req, res) => {
+  const updates = req.body;
+  for (const [key, value] of Object.entries(updates)) {
+    await supabase.from('app_settings').upsert({ key, value: String(value) }, { onConflict: 'key' });
+  }
+  res.json({ success: true });
+});
+
+// ========== CRYPTO PAYMENTS (NOWPayments) ==========
+
+app.get('/api/crypto/currencies', parseTelegramUser, async (req, res) => {
+  const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'nowpayments_api_key').single();
+  const apiKey = setting?.value;
+  if (!apiKey) return res.json({ currencies: [] });
+  try {
+    const result = await np.getAvailableCurrencies(apiKey);
+    const { data: acceptedSetting } = await supabase.from('app_settings').select('value').eq('key', 'nowpayments_accepted_coins').single();
+    const accepted = (acceptedSetting?.value || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    const filtered = (result.currencies || []).filter(c => accepted.includes(c.toLowerCase()));
+    res.json({ currencies: filtered });
+  } catch (err) { res.json({ currencies: [] }); }
+});
+
+app.get('/api/crypto/estimate', parseTelegramUser, async (req, res) => {
+  const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'nowpayments_api_key').single();
+  const apiKey = setting?.value;
+  if (!apiKey) return res.status(400).json({ error: 'Crypto not configured' });
+  try {
+    const result = await np.getEstimatePrice(apiKey, req.query.amount, req.query.currency_from || 'usd', req.query.currency_to);
+    res.json(result);
+  } catch (err) { res.status(500).json({ error: 'Estimate failed' }); }
+});
+
+app.post('/api/crypto/create-payment', parseTelegramUser, async (req, res) => {
+  try {
+    const userId = await ensureUser(req.telegramUser);
+    const courseId = parseInt(req.body.course_id);
+    const payCurrency = req.body.pay_currency;
+
+    const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'nowpayments_api_key').single();
+    const apiKey = setting?.value;
+    if (!apiKey) return res.status(400).json({ error: 'Crypto not configured' });
+
+    const { data: course } = await supabase.from('courses').select('title, price_mmk').eq('id', courseId).single();
+    if (!course) return res.status(404).json({ error: 'Course not found' });
+
+    const priceUsd = Math.max(course.price_mmk / 3500, 0.5);
+    const appUrl = process.env.WEB_APP_URL || '';
+    const ipnUrl = `${appUrl}/api/crypto/ipn`;
+
+    const payment = await np.createPayment(apiKey, {
+      priceAmount: parseFloat(priceUsd.toFixed(2)),
+      priceCurrency: 'usd',
+      payCurrency,
+      orderId: `${userId}_${courseId}_${Date.now()}`,
+      orderDescription: course.title,
+      ipnCallbackUrl: ipnUrl,
+    });
+
+    if (payment.id) {
+      await supabase.from('crypto_payments').insert({
+        user_id: userId,
+        course_id: courseId,
+        nowpayments_id: payment.id,
+        pay_address: payment.pay_address,
+        pay_amount: payment.pay_amount,
+        pay_currency: payment.pay_currency,
+        price_amount: payment.price_amount,
+        price_currency: payment.price_currency,
+        status: payment.payment_status || 'waiting',
+      });
+    }
+
+    res.json({
+      payment_id: payment.id,
+      pay_address: payment.pay_address,
+      pay_amount: payment.pay_amount,
+      pay_currency: payment.pay_currency,
+      price_amount: payment.price_amount,
+      expiration_estimate_date: payment.expiration_estimate_date,
+      status: payment.payment_status || 'waiting',
+    });
+  } catch (err) {
+    console.error('Crypto payment error:', err);
+    res.status(500).json({ error: 'Failed to create payment' });
+  }
+});
+
+app.get('/api/crypto/status/:paymentId', parseTelegramUser, async (req, res) => {
+  const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'nowpayments_api_key').single();
+  const apiKey = setting?.value;
+  if (!apiKey) return res.status(400).json({ error: 'Crypto not configured' });
+  try {
+    const status = await np.getPaymentStatus(apiKey, req.params.paymentId);
+    if (status.payment_id) {
+      await supabase.from('crypto_payments')
+        .update({ status: status.payment_status, actually_paid: status.actually_paid || 0, outcome_amount: status.outcome_amount || 0, updated_at: new Date().toISOString() })
+        .eq('nowpayments_id', status.payment_id);
+    }
+    res.json(status);
+  } catch (err) { res.status(500).json({ error: 'Status check failed' }); }
+});
+
+app.post('/api/crypto/ipn', async (req, res) => {
+  try {
+    const { data: secretSetting } = await supabase.from('app_settings').select('value').eq('key', 'nowpayments_ipn_secret').single();
+    const ipnSecret = secretSetting?.value;
+    const signature = req.headers['x-nowpayments-sig'];
+
+    if (ipnSecret && signature) {
+      const valid = np.verifyIPN(ipnSecret, req.body, signature);
+      if (!valid) return res.status(400).json({ error: 'Invalid signature' });
+    }
+
+    const { payment_id, payment_status, actually_paid, outcome_amount, pay_currency, order_id } = req.body;
+    if (payment_id) {
+      await supabase.from('crypto_payments')
+        .update({ status: payment_status, actually_paid: actually_paid || 0, outcome_amount: outcome_amount || 0, updated_at: new Date().toISOString() })
+        .eq('nowpayments_id', payment_id);
+
+      if (payment_status === 'finished') {
+        const { data: cp } = await supabase.from('crypto_payments').select('user_id, course_id, pay_amount, pay_currency, users(first_name, telegram_id), courses(title)').eq('nowpayments_id', payment_id).single();
+        if (cp) {
+          bot.notifyAdminCryptoPayment(cp.users?.first_name || 'User', cp.courses?.title || '', `${cp.pay_amount} ${(cp.pay_currency || '').toUpperCase()}`, cp.pay_currency || '').catch(console.error);
+          if (cp.users?.telegram_id) {
+            bot.notifyUserCryptoSuccess(cp.users.telegram_id, cp.course_id, cp.courses?.title || '').catch(console.error);
+          }
+        }
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) { console.error('IPN error:', err); res.json({ ok: true }); }
+});
+
+app.get('/api/my-crypto-payments', parseTelegramUser, async (req, res) => {
+  const userId = await ensureUser(req.telegramUser);
+  const { data } = await supabase.from('crypto_payments').select('*, courses(title)').eq('user_id', userId).order('created_at', { ascending: false });
+  res.json(data || []);
+});
+
+// --- Admin: Crypto Payments ---
+app.get('/api/admin/crypto-payments', validateAdmin, async (req, res) => {
+  const { data } = await supabase.from('crypto_payments')
+    .select('*, users(first_name, username, telegram_id), courses(title, price_mmk)')
+    .order('created_at', { ascending: false });
+  res.json((data || []).map(p => ({
+    ...p, first_name: p.users?.first_name, username: p.users?.username,
+    course_title: p.courses?.title, price_mmk: p.courses?.price_mmk,
+  })));
 });
 
 // Vercel handler

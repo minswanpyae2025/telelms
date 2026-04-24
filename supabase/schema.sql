@@ -171,6 +171,43 @@ CREATE TABLE IF NOT EXISTS discussions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- App Settings (global config: language, payment toggles, NOWPayments)
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+-- Default settings
+INSERT INTO app_settings (key, value) VALUES
+  ('language', 'my'),
+  ('myanmar_payment_enabled', 'true'),
+  ('crypto_payment_enabled', 'false'),
+  ('nowpayments_api_key', ''),
+  ('nowpayments_ipn_secret', ''),
+  ('nowpayments_accepted_coins', 'btc,eth,usdt,ltc,trx')
+ON CONFLICT (key) DO NOTHING;
+
+-- Crypto Payments (NOWPayments)
+CREATE TABLE IF NOT EXISTS crypto_payments (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  course_id INTEGER REFERENCES courses(id),
+  nowpayments_id BIGINT,
+  pay_address TEXT,
+  pay_amount NUMERIC,
+  pay_currency TEXT,
+  price_amount NUMERIC,
+  price_currency TEXT DEFAULT 'usd',
+  status TEXT DEFAULT 'waiting',
+  actually_paid NUMERIC DEFAULT 0,
+  outcome_amount NUMERIC DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_crypto_payments_user ON crypto_payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_crypto_payments_nowid ON crypto_payments(nowpayments_id);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_courses_roadmap ON courses(roadmap_id);
 CREATE INDEX IF NOT EXISTS idx_modules_course ON modules(course_id);

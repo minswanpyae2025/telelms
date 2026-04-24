@@ -84,6 +84,7 @@
         <div class="sidebar-item" onclick="switchPage('announcements')" data-page="announcements">📢 ကြေညာချက်များ</div>
         <div class="sidebar-item" onclick="switchPage('users')" data-page="users">👥 အသုံးပြုသူများ</div>
         <div class="sidebar-item" onclick="switchPage('analytics')" data-page="analytics">📈 ခွဲခြမ်းစိတ်ဖြာ</div>
+        <div class="sidebar-item" onclick="switchPage('settings')" data-page="settings">⚙️ Settings</div>
       </nav>
       <div class="p-4 mt-auto">
         <div class="sidebar-item" onclick="exportCSV('users')">📥 Users CSV</div>
@@ -180,6 +181,77 @@
       <div id="page-analytics" class="page hidden">
         <h2 class="text-xl font-bold mb-5">📈 ခွဲခြမ်းစိတ်ဖြာ</h2>
         <div id="analytics-content"></div>
+      </div>
+
+      <!-- Settings Page -->
+      <div id="page-settings" class="page hidden">
+        <h2 class="text-xl font-bold mb-5">⚙️ App Settings</h2>
+
+        <!-- Language Toggle -->
+        <div class="stat-card mb-4">
+          <h3 class="font-bold text-base mb-3">🌐 App Language</h3>
+          <p class="text-sm text-gray-500 mb-4">Toggle between Burmese and English for all users. This changes the entire app including bot messages.</p>
+          <div class="flex gap-3">
+            <button class="btn" id="lang-my-btn" onclick="setAppLanguage('my')">🇲🇲 Myanmar (Burmese)</button>
+            <button class="btn" id="lang-en-btn" onclick="setAppLanguage('en')">🇬🇧 English</button>
+          </div>
+        </div>
+
+        <!-- Payment Toggles -->
+        <div class="stat-card mb-4">
+          <h3 class="font-bold text-base mb-3">💳 Payment Methods Toggle</h3>
+          <p class="text-sm text-gray-500 mb-4">Enable or disable payment methods. Disabled methods won't be shown to users.</p>
+          <div class="space-y-4">
+            <div class="flex items-center justify-between p-4 rounded-xl" style="background: #f8fafc;">
+              <div>
+                <p class="font-bold text-sm">💰 Myanmar Manual Payment</p>
+                <p class="text-xs text-gray-500">KBZ Pay, Wave, CB Pay, AYA Pay, etc.</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggle-myanmar" class="sr-only peer" onchange="togglePaymentMethod('myanmar_payment_enabled', this.checked)">
+                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+            <div class="flex items-center justify-between p-4 rounded-xl" style="background: #f8fafc;">
+              <div>
+                <p class="font-bold text-sm">🪙 Crypto Payment (NOWPayments)</p>
+                <p class="text-xs text-gray-500">Bitcoin, Ethereum, USDT, etc.</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggle-crypto" class="sr-only peer" onchange="togglePaymentMethod('crypto_payment_enabled', this.checked)">
+                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- NOWPayments Config -->
+        <div class="stat-card mb-4">
+          <h3 class="font-bold text-base mb-3">🪙 NOWPayments Configuration</h3>
+          <p class="text-sm text-gray-500 mb-4">Configure your NOWPayments API credentials and accepted coins.</p>
+          <div class="space-y-4">
+            <div>
+              <label class="form-label">API Key</label>
+              <input type="password" class="form-input" id="np-api-key" placeholder="Your NOWPayments API Key">
+            </div>
+            <div>
+              <label class="form-label">IPN Secret</label>
+              <input type="password" class="form-input" id="np-ipn-secret" placeholder="Your NOWPayments IPN Secret">
+            </div>
+            <div>
+              <label class="form-label">Accepted Coins (comma separated)</label>
+              <input type="text" class="form-input" id="np-accepted-coins" placeholder="btc,eth,usdt,ltc,trx">
+              <p class="text-xs text-gray-400 mt-1">e.g. btc,eth,usdt,ltc,trx,bnb,sol,doge,xrp</p>
+            </div>
+            <button class="btn btn-primary" onclick="saveNowPaymentsConfig()">💾 Save NOWPayments Config</button>
+          </div>
+        </div>
+
+        <!-- Crypto Payments List -->
+        <div class="stat-card">
+          <h3 class="font-bold text-base mb-3">🪙 Crypto Payments</h3>
+          <div id="crypto-payments-table" class="table-container"></div>
+        </div>
       </div>
     </div>
   </div>
