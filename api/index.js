@@ -12,6 +12,22 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // --- Auth Middleware ---
+function verifyTelegramInitData(initDataRaw) {
+  const botToken = process.env.BOT_TOKEN;
+  if (!botToken) return null; // skip verification if no bot token (dev mode)
+  try {
+    const params = new URLSearchParams(initDataRaw);
+    const hash = params.get('hash');
+    if (!hash) return null;
+    params.delete('hash');
+    const entries = [...params.entries()].sort(([a], [b]) => a.localeCompare(b));
+    const dataCheckString = entries.map(([k, v]) => `${k}=${v}`).join('\n');
+    const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
+    const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+    return hmac === hash;
+  } catch (e) { return null; }
+}
+
 function parseTelegramUser(req, res, next) {
   const initData = req.headers['x-telegram-init-data'];
   if (!initData) return res.status(401).json({ error: 'No initData' });
@@ -19,6 +35,11 @@ function parseTelegramUser(req, res, next) {
     const urlParams = new URLSearchParams(initData);
     const userStr = urlParams.get('user');
     if (!userStr) return res.status(400).json({ error: 'No user in initData' });
+    // Verify HMAC if BOT_TOKEN is set
+    if (process.env.BOT_TOKEN) {
+      const valid = verifyTelegramInitData(initData);
+      if (valid === false) return res.status(403).json({ error: 'Invalid initData signature' });
+    }
     req.telegramUser = JSON.parse(userStr);
     next();
   } catch (err) { res.status(400).json({ error: 'Invalid initData' }); }
@@ -40,6 +61,19 @@ async function ensureUser(tgUser) {
 
 // --- Health ---
 app.get('/api/health', (req, res) => res.json({ status: 'ok', app: 'Lann Sa LMS', timestamp: new Date().toISOString() }));
+
+// --- DB Migration (run once for new tables) ---
+app.post('/api/admin/migrate', validateAdmin, async (req, res) => {
+  try {
+    // Create coupons table if not exists (uses raw insert as workaround)
+    const { error: e1 } = await supabase.from('coupons').select('id').limit(1);
+    if (e1 && e1.message.includes('could not find')) {
+      // Tables don't exist yet - user needs to run migration SQL
+      return res.json({ success: false, message: 'Please run the coupons migration SQL in Supabase Dashboard. See supabase/schema.sql for the CREATE TABLE statements.' });
+    }
+    res.json({ success: true, message: 'All tables exist' });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 // --- Bot Webhook ---
 app.post('/api/bot/webhook', async (req, res) => {
@@ -163,7 +197,7 @@ app.delete('/api/bookmarks/:courseId', parseTelegramUser, async (req, res) => {
   res.json({ success: true });
 });
 
-// --- Progress ---
+// --- Progress (with auto-certificate generation) ---
 app.post('/api/progress', parseTelegramUser, async (req, res) => {
   const userId = await ensureUser(req.telegramUser);
   await supabase.from('progress').upsert({
@@ -171,7 +205,31 @@ app.post('/api/progress', parseTelegramUser, async (req, res) => {
     completed: !!req.body.completed,
     completed_at: req.body.completed ? new Date().toISOString() : null,
   }, { onConflict: 'user_id,lesson_id' });
-  res.json({ success: true });
+
+  let certificate = null;
+  if (req.body.completed && req.body.course_id) {
+    try {
+      const courseId = parseInt(req.body.course_id);
+      const { data: existing } = await supabase.from('certificates').select('*').eq('user_id', userId).eq('course_id', courseId).single();
+      if (!existing) {
+        const { data: modules } = await supabase.from('modules').select('id').eq('course_id', courseId);
+        const modIds = (modules || []).map(m => m.id);
+        if (modIds.length > 0) {
+          const { data: lessons } = await supabase.from('lessons').select('id').in('module_id', modIds);
+          const lessonIds = (lessons || []).map(l => l.id);
+          if (lessonIds.length > 0) {
+            const { data: progress } = await supabase.from('progress').select('lesson_id').eq('user_id', userId).eq('completed', true).in('lesson_id', lessonIds);
+            if (progress && progress.length >= lessonIds.length) {
+              const certNumber = 'LS-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+              const { data: cert } = await supabase.from('certificates').insert({ user_id: userId, course_id: courseId, certificate_number: certNumber }).select('*').single();
+              certificate = cert;
+            }
+          }
+        }
+      }
+    } catch (e) { console.error('Auto-cert error:', e); }
+  }
+  res.json({ success: true, certificate });
 });
 
 // --- Payments ---
@@ -483,6 +541,97 @@ app.post('/api/admin/quizzes', validateAdmin, async (req, res) => {
 app.delete('/api/admin/quizzes/:id', validateAdmin, async (req, res) => {
   await supabase.from('quizzes').delete().eq('id', req.params.id);
   res.json({ success: true });
+});
+
+// ========== COUPONS / REFERRAL CODES ==========
+
+app.get('/api/admin/coupons', validateAdmin, async (req, res) => {
+  const { data } = await supabase.from('coupons').select('*, courses(title)').order('created_at', { ascending: false });
+  res.json(data || []);
+});
+
+app.post('/api/admin/coupons', validateAdmin, async (req, res) => {
+  const { code, type, discount_amount, discount_percent, max_uses, course_id, expires_at } = req.body;
+  if (!code) return res.status(400).json({ error: 'Code required' });
+  const { error } = await supabase.from('coupons').insert({
+    code: code.toUpperCase().trim(),
+    type: type || 'fixed',
+    discount_amount: parseInt(discount_amount) || 0,
+    discount_percent: parseInt(discount_percent) || 0,
+    max_uses: parseInt(max_uses) || 1,
+    course_id: course_id ? parseInt(course_id) : null,
+    expires_at: expires_at || null,
+  });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ success: true });
+});
+
+app.put('/api/admin/coupons/:id', validateAdmin, async (req, res) => {
+  await supabase.from('coupons').update({ is_active: req.body.is_active }).eq('id', req.params.id);
+  res.json({ success: true });
+});
+
+app.delete('/api/admin/coupons/:id', validateAdmin, async (req, res) => {
+  await supabase.from('coupons').delete().eq('id', req.params.id);
+  res.json({ success: true });
+});
+
+// User: validate coupon
+app.post('/api/coupons/validate', parseTelegramUser, async (req, res) => {
+  const { code, course_id } = req.body;
+  if (!code || !course_id) return res.status(400).json({ error: 'Code and course_id required' });
+
+  const { data: coupon } = await supabase.from('coupons').select('*').eq('code', code.toUpperCase().trim()).eq('is_active', true).single();
+  if (!coupon) return res.status(404).json({ error: 'Invalid coupon code' });
+  if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) return res.status(400).json({ error: 'Coupon expired' });
+  if (coupon.used_count >= coupon.max_uses) return res.status(400).json({ error: 'Coupon fully used' });
+  if (coupon.course_id && coupon.course_id !== parseInt(course_id)) return res.status(400).json({ error: 'Coupon not valid for this course' });
+
+  const userId = await ensureUser(req.telegramUser);
+  const { data: used } = await supabase.from('coupon_uses').select('id').eq('coupon_id', coupon.id).eq('user_id', userId).eq('course_id', parseInt(course_id)).single();
+  if (used) return res.status(400).json({ error: 'Coupon already used' });
+
+  const { data: course } = await supabase.from('courses').select('price_mmk').eq('id', parseInt(course_id)).single();
+  if (!course) return res.status(404).json({ error: 'Course not found' });
+
+  let discount = 0;
+  if (coupon.type === 'percent' || coupon.type === 'referral') {
+    discount = Math.round(course.price_mmk * (coupon.discount_percent / 100));
+  } else {
+    discount = coupon.discount_amount;
+  }
+  discount = Math.min(discount, course.price_mmk);
+  const finalPrice = course.price_mmk - discount;
+
+  res.json({ valid: true, coupon_id: coupon.id, type: coupon.type, discount, final_price: finalPrice, original_price: course.price_mmk });
+});
+
+// Apply coupon on payment
+app.post('/api/coupons/apply', parseTelegramUser, async (req, res) => {
+  const { coupon_id, course_id } = req.body;
+  const userId = await ensureUser(req.telegramUser);
+  const { data: coupon } = await supabase.from('coupons').select('*').eq('id', coupon_id).single();
+  if (!coupon) return res.status(404).json({ error: 'Coupon not found' });
+
+  const { data: course } = await supabase.from('courses').select('price_mmk').eq('id', parseInt(course_id)).single();
+  let discount = 0;
+  if (coupon.type === 'percent' || coupon.type === 'referral') {
+    discount = Math.round(course.price_mmk * (coupon.discount_percent / 100));
+  } else {
+    discount = coupon.discount_amount;
+  }
+  discount = Math.min(discount, course.price_mmk);
+
+  await supabase.from('coupon_uses').insert({ coupon_id: coupon.id, user_id: userId, course_id: parseInt(course_id), discount_applied: discount });
+  await supabase.from('coupons').update({ used_count: coupon.used_count + 1 }).eq('id', coupon.id);
+
+  // If 100% discount, auto-approve
+  if (discount >= course.price_mmk) {
+    await supabase.from('payments').insert({ user_id: userId, course_id: parseInt(course_id), payment_method_id: null, screenshot_url: 'coupon:' + coupon.code, status: 'approved', admin_note: 'Auto-approved: 100% coupon ' + coupon.code });
+    return res.json({ success: true, free: true });
+  }
+
+  res.json({ success: true, free: false, discount, final_price: course.price_mmk - discount });
 });
 
 // ========== APP SETTINGS ==========

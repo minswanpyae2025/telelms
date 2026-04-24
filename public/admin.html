@@ -5,9 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>လမ်းစ - Admin Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Myanmar:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Padauk:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    * { font-family: 'Noto Sans Myanmar', system-ui, sans-serif; }
+    @font-face { font-family: 'Pyidaungsu'; src: url('https://cdn.jsdelivr.net/gh/nickcoutsos/pyidaungsu@master/Pyidaungsu-Regular.ttf') format('truetype'); font-weight: 400; }
+    @font-face { font-family: 'Pyidaungsu'; src: url('https://cdn.jsdelivr.net/gh/nickcoutsos/pyidaungsu@master/Pyidaungsu-Bold.ttf') format('truetype'); font-weight: 700; }
+    * { font-family: 'Pyidaungsu', 'Padauk', system-ui, sans-serif; }
     body { background: #f8fafc; margin: 0; }
     .sidebar { width: 260px; background: linear-gradient(180deg, #1e1b4b, #312e81); min-height: 100vh; color: #fff; position: fixed; left: 0; top: 0; z-index: 40; transition: transform 0.3s; }
     .sidebar-item { padding: 12px 20px; display: flex; align-items: center; gap: 12px; cursor: pointer; border-radius: 12px; margin: 4px 12px; transition: all 0.2s; font-size: 14px; }
@@ -81,6 +83,7 @@
         <div class="sidebar-item" onclick="switchPage('roadmaps')" data-page="roadmaps">🗺️ လမ်းကြောင်းများ</div>
         <div class="sidebar-item" onclick="switchPage('courses')" data-page="courses">📖 သင်တန်းများ</div>
         <div class="sidebar-item" onclick="switchPage('content')" data-page="content">📝 အကြောင်းအရာ</div>
+        <div class="sidebar-item" onclick="switchPage('coupons')" data-page="coupons">🎟️ ကူပွန်/Referral</div>
         <div class="sidebar-item" onclick="switchPage('announcements')" data-page="announcements">📢 ကြေညာချက်များ</div>
         <div class="sidebar-item" onclick="switchPage('users')" data-page="users">👥 အသုံးပြုသူများ</div>
         <div class="sidebar-item" onclick="switchPage('analytics')" data-page="analytics">📈 ခွဲခြမ်းစိတ်ဖြာ</div>
@@ -160,6 +163,15 @@
           </select>
         </div>
         <div id="content-area"></div>
+      </div>
+
+      <!-- Coupons Page -->
+      <div id="page-coupons" class="page hidden">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-xl font-bold">🎟️ ကူပွန် / Referral Codes</h2>
+          <button class="btn btn-primary" onclick="showCouponModal()">+ ကူပွန် ထည့်ရန်</button>
+        </div>
+        <div class="table-container" id="coupons-table"></div>
       </div>
 
       <!-- Announcements Page -->

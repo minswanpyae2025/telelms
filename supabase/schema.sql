@@ -172,6 +172,34 @@ CREATE TABLE IF NOT EXISTS discussions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Coupons / Referral Codes
+CREATE TABLE IF NOT EXISTS coupons (
+  id SERIAL PRIMARY KEY,
+  code TEXT UNIQUE NOT NULL,
+  type TEXT DEFAULT 'fixed' CHECK (type IN ('fixed', 'percent', 'referral')),
+  discount_amount INTEGER DEFAULT 0,
+  discount_percent INTEGER DEFAULT 0,
+  max_uses INTEGER DEFAULT 1,
+  used_count INTEGER DEFAULT 0,
+  course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS coupon_uses (
+  id SERIAL PRIMARY KEY,
+  coupon_id INTEGER REFERENCES coupons(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
+  discount_applied INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(coupon_id, user_id, course_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons(code);
+CREATE INDEX IF NOT EXISTS idx_coupon_uses_user ON coupon_uses(user_id);
+
 -- App Settings (global config: language, payment toggles, NOWPayments)
 CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,

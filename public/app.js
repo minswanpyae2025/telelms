@@ -10,6 +10,7 @@ const screenStack = ['home'];
 let currentData = {};
 let appSettings = {};
 let lang = 'my';
+let roadmapMap = {};
 
 // --- i18n ---
 const L = {
@@ -133,6 +134,14 @@ const L = {
     crypto_refunded: '↩️ ပြန်အမ်းပြီး',
     crypto_no_config: 'Crypto ငွေပေးချေနည်း ပြင်ဆင်ထားခြင်း မရှိသေးပါ',
     crypto_history: '🪙 Crypto ငွေပေးချေမှု',
+    coupon_placeholder: 'ကူပွန် ကုဒ် ထည့်ပါ',
+    apply_coupon: 'အသုံးပြုရန်',
+    coupon_applied: 'ကူပွန် အသုံးပြုပြီး! လျှော့ စျေး:',
+    coupon_invalid: 'ကူပွန် မမှန်ပါ',
+    coupon_free: 'ကူပွန်ဖြင့် အခမဲ့ စာရင်းသွင်းပြီးပါပြီ!',
+    original_price: 'မူရင်း စျေး',
+    discounted_price: 'လျှော့ စျေး',
+    auto_cert: '🎓 သင်တန်း အောင်မြင်စွာ ပြီးဆုံးပါသည်! လက်မှတ် ထုတ်ပေးပြီးပါပြီ။',
   },
   en: {
     app_title: '🎓 Lann Sa',
@@ -253,6 +262,14 @@ const L = {
     crypto_refunded: '↩️ Refunded',
     crypto_no_config: 'Crypto payment not configured yet',
     crypto_history: '🪙 Crypto Payments',
+    coupon_placeholder: 'Enter coupon code',
+    apply_coupon: 'Apply',
+    coupon_applied: 'Coupon applied! Discount:',
+    coupon_invalid: 'Invalid coupon',
+    coupon_free: 'Free enrollment with coupon!',
+    original_price: 'Original price',
+    discounted_price: 'Discounted price',
+    auto_cert: '🎓 Course completed! Certificate has been issued.',
   },
 };
 
@@ -344,6 +361,10 @@ function applyLanguageUI() {
 
 // ---- HOME ----
 async function loadHome() {
+  // Show skeleton loaders while loading
+  document.getElementById('roadmaps-list').innerHTML = Array(3).fill('<div class="card p-4 mb-3"><div class="flex items-center gap-3"><div class="skeleton w-10 h-10 rounded-xl"></div><div class="flex-1"><div class="skeleton h-4 w-3/4 mb-2"></div><div class="skeleton h-3 w-1/2"></div></div></div></div>').join('');
+  document.getElementById('courses-list').innerHTML = Array(3).fill('<div class="card p-4 mb-3"><div class="flex items-start gap-3"><div class="skeleton w-12 h-12 rounded-xl"></div><div class="flex-1"><div class="skeleton h-4 w-3/4 mb-2"></div><div class="skeleton h-3 w-full mb-2"></div><div class="skeleton h-5 w-20"></div></div></div></div>').join('');
+
   const [roadmaps, courses, announcements] = await Promise.all([
     api('/roadmaps'), api('/courses'), api('/announcements')
   ]);
@@ -356,6 +377,10 @@ async function loadHome() {
   document.querySelector('#roadmaps-section h2').textContent = _('roadmaps_title');
   document.querySelector('#courses-section h2').textContent = _('courses_title');
   document.querySelector('#courses-section .text-xs').textContent = _('view_all');
+
+  // Build roadmap lookup for course cards
+  roadmapMap = {};
+  roadmaps.forEach(r => { roadmapMap[r.id] = r; });
 
   const rl = document.getElementById('roadmaps-list');
   rl.innerHTML = roadmaps.map(r => `
@@ -376,11 +401,14 @@ async function loadHome() {
 }
 
 function courseCard(c) {
+  const rm = roadmapMap[c.roadmap_id];
+  const cardColor = rm ? rm.color : '#6366f1';
+  const cardIcon = rm ? rm.icon : '📖';
   return `
-    <div class="card p-4 cursor-pointer" onclick="loadCourse(${c.id})">
+    <div class="card p-4 cursor-pointer" style="border-left: 3px solid ${cardColor};" onclick="loadCourse(${c.id})">
       <div class="flex items-start gap-3">
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style="background: ${c.thumbnail_url ? '' : '#f1f5f9'};">
-          ${c.thumbnail_url ? `<img src="${c.thumbnail_url}" class="w-full h-full rounded-xl object-cover">` : '📖'}
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style="background: ${c.thumbnail_url ? '' : cardColor + '15'};">
+          ${c.thumbnail_url ? `<img src="${c.thumbnail_url}" class="w-full h-full rounded-xl object-cover">` : cardIcon}
         </div>
         <div class="flex-1 min-w-0">
           <h3 class="font-bold text-sm">${c.title}</h3>
@@ -407,6 +435,7 @@ function loadAllCourses() {
 async function loadRoadmapCourses(roadmapId, title) {
   showScreen('roadmap-courses');
   document.getElementById('roadmap-title').textContent = title;
+  document.getElementById('roadmap-courses-list').innerHTML = Array(3).fill('<div class="card p-4 mb-3"><div class="flex gap-3"><div class="skeleton w-12 h-12 rounded-xl"></div><div class="flex-1"><div class="skeleton h-4 w-3/4 mb-2"></div><div class="skeleton h-3 w-full mb-2"></div><div class="skeleton h-5 w-20"></div></div></div></div>').join('');
   const courses = await api(`/courses?roadmap_id=${roadmapId}`);
   document.getElementById('roadmap-courses-list').innerHTML = courses.length > 0
     ? courses.map(c => courseCard(c)).join('')
@@ -655,8 +684,12 @@ async function loadLesson(id) {
 }
 
 async function toggleLessonComplete(lessonId, courseId, completed) {
-  await api('/progress', { method: 'POST', body: JSON.stringify({ lesson_id: lessonId, completed }) });
-  showToast(completed ? _('marked_done') : _('marked_undone'));
+  const result = await api('/progress', { method: 'POST', body: JSON.stringify({ lesson_id: lessonId, completed, course_id: courseId }) });
+  if (result.certificate) {
+    showToast(_('auto_cert'));
+  } else {
+    showToast(completed ? _('marked_done') : _('marked_undone'));
+  }
   loadLesson(lessonId);
 }
 
@@ -728,7 +761,14 @@ async function startPayment(courseId) {
   }
 
   let html = `<h2 class="text-base font-bold mb-1">${_('payment_title')}</h2>
-    <p class="text-xs opacity-60 mb-4">${course?.title || ''} - ${formatMMK(course?.price_mmk)}${course?.price_usdt ? ` / $${course.price_usdt} USDT` : ''}</p>`;
+    <p class="text-xs opacity-60 mb-2">${course?.title || ''} - ${formatMMK(course?.price_mmk)}${course?.price_usdt ? ` / $${course.price_usdt} USDT` : ''}</p>
+    <div class="card p-3 mb-4">
+      <div class="flex gap-2">
+        <input class="form-input flex-1" style="border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 12px;font-size:13px;" id="coupon-input" placeholder="${_('coupon_placeholder')}" />
+        <button class="btn-outline" style="padding:8px 16px;font-size:12px;border-radius:10px;" onclick="applyCoupon(${courseId})">${_('apply_coupon')}</button>
+      </div>
+      <div id="coupon-result" class="mt-2 text-xs hidden"></div>
+    </div>`;
 
   if (hasManual && hasCrypto) {
     html += `<p class="text-sm font-medium mb-3">${_('choose_method')}</p>
@@ -780,6 +820,33 @@ async function startPayment(courseId) {
   el.innerHTML = html;
 
   if (hasCrypto) loadCryptoCoins();
+}
+
+async function applyCoupon(courseId) {
+  const code = document.getElementById('coupon-input').value.trim();
+  const resultEl = document.getElementById('coupon-result');
+  if (!code) return;
+  resultEl.classList.remove('hidden');
+  resultEl.innerHTML = '<span class="opacity-50">Checking...</span>';
+  try {
+    const result = await api('/coupons/validate', { method: 'POST', body: JSON.stringify({ code, course_id: courseId }) });
+    if (result.valid) {
+      currentData.couponData = result;
+      if (result.discount >= result.original_price) {
+        // 100% off - apply directly
+        const applyResult = await api('/coupons/apply', { method: 'POST', body: JSON.stringify({ coupon_id: result.coupon_id, course_id: courseId }) });
+        if (applyResult.free) {
+          document.getElementById('payment-flow').innerHTML = `<div class="text-center py-12"><p class="text-5xl mb-4">🎉</p><h2 class="text-lg font-bold mb-2">${_('coupon_free')}</h2><button class="btn-outline mt-6" onclick="showScreen('home')">${_('go_home')}</button></div>`;
+          return;
+        }
+      }
+      resultEl.innerHTML = `<span class="text-green-600 font-medium">${_('coupon_applied')} ${formatMMK(result.discount)}</span><br><span class="opacity-50 line-through">${_('original_price')}: ${formatMMK(result.original_price)}</span> → <span class="font-bold">${_('discounted_price')}: ${formatMMK(result.final_price)}</span>`;
+    }
+  } catch (e) {
+    const msg = e.message || _('coupon_invalid');
+    resultEl.innerHTML = `<span class="text-red-500">${msg}</span>`;
+    currentData.couponData = null;
+  }
 }
 
 function showPaymentTab(tab) {
@@ -982,6 +1049,7 @@ function copyAddress(addr) {
 async function loadMyCourses() {
   document.querySelector('#screen-mycourses h2').textContent = _('my_courses_title');
   if (!initData) { document.getElementById('no-courses').classList.remove('hidden'); return; }
+  document.getElementById('my-courses-list').innerHTML = Array(2).fill('<div class="card p-4 mb-3"><div class="flex gap-3"><div class="skeleton w-12 h-12 rounded-xl"></div><div class="flex-1"><div class="skeleton h-4 w-3/4 mb-2"></div><div class="skeleton h-3 w-1/2"></div></div></div></div>').join('');
   try {
     const courses = await api('/my-courses');
     const el = document.getElementById('my-courses-list');

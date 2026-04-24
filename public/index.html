@@ -6,9 +6,11 @@
   <title>လမ်းစ - Lann Sa LMS</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Myanmar:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Padauk:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    * { font-family: 'Noto Sans Myanmar', system-ui, sans-serif; }
+    @font-face { font-family: 'Pyidaungsu'; src: url('https://cdn.jsdelivr.net/gh/nickcoutsos/pyidaungsu@master/Pyidaungsu-Regular.ttf') format('truetype'); font-weight: 400; }
+    @font-face { font-family: 'Pyidaungsu'; src: url('https://cdn.jsdelivr.net/gh/nickcoutsos/pyidaungsu@master/Pyidaungsu-Bold.ttf') format('truetype'); font-weight: 700; }
+    * { font-family: 'Pyidaungsu', 'Padauk', system-ui, sans-serif; }
     body { background: var(--tg-theme-bg-color, #f8f9fa); color: var(--tg-theme-text-color, #1a1a2e); margin: 0; padding: 0; padding-bottom: 80px; }
     .screen { display: none; min-height: 100vh; }
     .screen.active { display: block; animation: fadeIn 0.2s ease; }

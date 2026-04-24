@@ -59,6 +59,7 @@ function switchPage(page) {
   else if (page === 'roadmaps') loadRoadmaps();
   else if (page === 'courses') loadCourses();
   else if (page === 'content') loadContentPage();
+  else if (page === 'coupons') loadCoupons();
   else if (page === 'announcements') loadAnnouncements();
   else if (page === 'users') loadUsers();
   else if (page === 'analytics') loadAnalytics();
@@ -124,28 +125,74 @@ function viewPaymentScreenshot(url) {
     </div>`;
 }
 
-async function approvePayment(id) {
-  const note = prompt('မှတ်ချက် (ချန်ထားနိုင်ပါသည်):') || '';
+function approvePayment(id) {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-box" onclick="event.stopPropagation()" style="max-width:400px;">
+        <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">✅ ငွေပေးချေမှု အတည်ပြုရန်</h3><button onclick="closeModal()" class="text-xl">&times;</button></div>
+        <div class="mb-4"><label class="form-label">မှတ်ချက် (ချန်ထားနိုင်ပါသည်)</label><textarea class="form-input" id="approve-note" rows="2" placeholder="မှတ်ချက် ရေးပါ..."></textarea></div>
+        <div class="flex gap-2">
+          <button class="btn btn-primary flex-1" onclick="doApprove(${id})">အတည်ပြုရန်</button>
+          <button class="btn btn-outline flex-1" onclick="closeModal()">ပယ်ဖျက်ရန်</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function doApprove(id) {
+  const note = document.getElementById('approve-note').value || '';
+  closeModal();
   await adminApi(`/admin/payments/${id}/approve`, { method: 'POST', body: JSON.stringify({ note }) });
   showToast('အတည်ပြုပြီးပါပြီ');
   loadPayments(document.getElementById('payment-filter').value);
   loadStats();
 }
 
-async function rejectPayment(id) {
-  const note = prompt('ပယ်ချရသည့် အကြောင်းပြချက်:');
-  if (note === null) return;
+function rejectPayment(id) {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-box" onclick="event.stopPropagation()" style="max-width:400px;">
+        <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">❌ ငွေပေးချေမှု ပယ်ချရန်</h3><button onclick="closeModal()" class="text-xl">&times;</button></div>
+        <div class="mb-4"><label class="form-label">ပယ်ချရသည့် အကြောင်းပြချက်</label><textarea class="form-input" id="reject-note" rows="2" placeholder="အကြောင်းပြချက် ရေးပါ..." required></textarea></div>
+        <div class="flex gap-2">
+          <button class="btn btn-danger flex-1" onclick="doReject(${id})">ပယ်ချရန်</button>
+          <button class="btn btn-outline flex-1" onclick="closeModal()">ပယ်ဖျက်ရန်</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function doReject(id) {
+  const note = document.getElementById('reject-note').value;
+  if (!note) { showToast('အကြောင်းပြချက် ထည့်ပါ'); return; }
+  closeModal();
   await adminApi(`/admin/payments/${id}/reject`, { method: 'POST', body: JSON.stringify({ note }) });
   showToast('ပယ်ချပြီးပါပြီ');
   loadPayments(document.getElementById('payment-filter').value);
   loadStats();
 }
 
-async function bulkApprove() {
+function bulkApprove() {
   const pendingIds = allPayments.filter(p => p.status === 'pending').map(p => p.id);
   if (!pendingIds.length) return;
-  if (!confirm(`စိစစ်ဆဲ ${pendingIds.length} ခု အားလုံးကို အတည်ပြုမှာ သေချာပါသလား?`)) return;
-  const note = prompt('မှတ်ချက် (ချန်ထားနိုင်ပါသည်):') || '';
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-box" onclick="event.stopPropagation()" style="max-width:400px;">
+        <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">✅ အားလုံး အတည်ပြုရန်</h3><button onclick="closeModal()" class="text-xl">&times;</button></div>
+        <p class="text-sm text-gray-600 mb-4">စိစစ်ဆဲ <b>${pendingIds.length}</b> ခု အားလုံးကို အတည်ပြုမှာ သေချာပါသလား?</p>
+        <div class="mb-4"><label class="form-label">မှတ်ချက် (ချန်ထားနိုင်ပါသည်)</label><textarea class="form-input" id="bulk-note" rows="2" placeholder="မှတ်ချက် ရေးပါ..."></textarea></div>
+        <div class="flex gap-2">
+          <button class="btn btn-primary flex-1" onclick="doBulkApprove()">အတည်ပြုရန်</button>
+          <button class="btn btn-outline flex-1" onclick="closeModal()">ပယ်ဖျက်ရန်</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function doBulkApprove() {
+  const pendingIds = allPayments.filter(p => p.status === 'pending').map(p => p.id);
+  const note = document.getElementById('bulk-note').value || 'Bulk approved';
+  closeModal();
   await adminApi('/admin/payments/bulk-approve', { method: 'POST', body: JSON.stringify({ ids: pendingIds, note }) });
   showToast(`${pendingIds.length} ခု အတည်ပြုပြီးပါပြီ`);
   loadPayments(); loadStats();
@@ -202,11 +249,11 @@ async function deletePaymentMethod(id) {
 // --- ROADMAPS ---
 async function loadRoadmaps() {
   const roadmaps = await adminApi('/roadmaps');
-  document.getElementById('roadmaps-grid').innerHTML = roadmaps.map(r => `
-    <div class="stat-card">
+  document.getElementById('roadmaps-grid').innerHTML = roadmaps.sort((a,b) => (a.order_index||0) - (b.order_index||0)).map(r => `
+    <div class="stat-card" style="border-left: 4px solid ${r.color || '#3390ec'};">
       <div class="flex items-center gap-3 mb-2">
         <span class="text-2xl">${r.icon}</span>
-        <div class="flex-1"><h3 class="font-bold">${r.title}</h3><p class="text-xs text-gray-500">${r.description || ''}</p></div>
+        <div class="flex-1"><h3 class="font-bold">${r.title}</h3><p class="text-xs text-gray-500">${r.description || ''}</p><p class="text-xs text-indigo-400 mt-1">Sort: ${r.order_index || 0}</p></div>
         <div class="flex gap-1">
           <button class="btn btn-outline text-xs" onclick='showRoadmapModal(${JSON.stringify(r)})'>✏️</button>
           <button class="btn btn-danger text-xs" onclick="deleteRoadmap(${r.id})">🗑</button>
@@ -254,14 +301,14 @@ async function loadCourses() {
   const [courses, roadmaps] = await Promise.all([adminApi('/courses'), adminApi('/roadmaps')]);
   const rmMap = {}; roadmaps.forEach(r => rmMap[r.id] = r.title);
   document.getElementById('courses-table').innerHTML = `<table>
-    <thead><tr><th>ID</th><th>ခေါင်းစဉ်</th><th>လမ်းကြောင်း</th><th>စျေးနှုန်း</th><th>အဆင့်</th><th>Group ID</th><th>လုပ်ဆောင်ချက်</th></tr></thead>
-    <tbody>${courses.map(c => `<tr>
+    <thead><tr><th>#</th><th>ခေါင်းစဉ်</th><th>လမ်းကြောင်း</th><th>စျေးနှုန်း</th><th>အဆင့်</th><th>Sort</th><th>လုပ်ဆောင်ချက်</th></tr></thead>
+    <tbody>${courses.sort((a,b) => (a.order_index||0) - (b.order_index||0)).map(c => `<tr>
       <td>${c.id}</td>
       <td class="font-medium">${c.title}</td>
       <td class="text-xs">${rmMap[c.roadmap_id] || '-'}</td>
       <td>${formatMMK(c.price_mmk)}${c.price_usdt ? `<br><span class="text-xs text-indigo-500">$${c.price_usdt} USDT</span>` : ''}</td>
       <td class="text-xs">${c.difficulty}</td>
-      <td class="text-xs">${c.telegram_group_id || '<span class="text-gray-300">-</span>'}</td>
+      <td class="text-center"><span class="text-xs text-gray-500">${c.order_index || 0}</span></td>
       <td><div class="flex gap-1">
         <button class="btn btn-outline text-xs" onclick='showCourseModal(${JSON.stringify(c)})'>✏️</button>
         <button class="btn btn-danger text-xs" onclick="deleteCourse(${c.id})">🗑</button>
@@ -550,6 +597,116 @@ async function exportCSV(type) {
     URL.revokeObjectURL(url);
     showToast('CSV ဒေါင်းလုဒ် လုပ်ပြီးပါပြီ');
   } catch (e) { showToast('Export မအောင်မြင်ပါ'); }
+}
+
+// --- COUPONS ---
+async function loadCoupons() {
+  const coupons = await adminApi('/admin/coupons');
+  const el = document.getElementById('coupons-table');
+  if (!coupons || coupons.length === 0) {
+    el.innerHTML = '<p class="text-gray-400 text-center py-8">ကူပွန် မရှိသေးပါ</p>';
+    return;
+  }
+  el.innerHTML = `<table>
+    <thead><tr><th>Code</th><th>Type</th><th>Discount</th><th>Course</th><th>Uses</th><th>Expires</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${coupons.map(c => {
+      const discountText = c.type === 'fixed' ? formatMMK(c.discount_amount) : `${c.discount_percent}%`;
+      const stCls = c.is_active ? 'badge-green' : 'badge-red';
+      const stText = c.is_active ? 'Active' : 'Inactive';
+      return `<tr>
+        <td><code class="font-bold text-indigo-600">${c.code}</code></td>
+        <td><span class="badge badge-blue">${c.type}</span></td>
+        <td class="font-medium">${discountText}</td>
+        <td class="text-xs">${c.courses?.title || 'All Courses'}</td>
+        <td>${c.used_count}/${c.max_uses}</td>
+        <td class="text-xs">${c.expires_at ? new Date(c.expires_at).toLocaleDateString() : 'Never'}</td>
+        <td><span class="badge ${stCls}">${stText}</span></td>
+        <td><div class="flex gap-1">
+          <button class="btn btn-outline text-xs" onclick="toggleCoupon(${c.id}, ${!c.is_active})">${c.is_active ? 'Disable' : 'Enable'}</button>
+          <button class="btn btn-danger text-xs" onclick="deleteCoupon(${c.id})">🗑</button>
+        </div></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+function showCouponModal() {
+  adminApi('/courses').then(courses => {
+    document.getElementById('modal-container').innerHTML = `
+      <div class="modal-overlay" onclick="closeModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+          <div class="flex justify-between items-center mb-5"><h3 class="font-bold text-lg">🎟️ ကူပွန် ထည့်ရန်</h3><button onclick="closeModal()" class="text-xl">&times;</button></div>
+          <div class="space-y-3">
+            <div><label class="form-label">Code</label><input class="form-input" id="cp-code" placeholder="e.g. WELCOME50" style="text-transform:uppercase;"></div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="form-label">Type</label><select class="form-input" id="cp-type" onchange="couponTypeChanged()">
+                <option value="fixed">Fixed Amount (MMK)</option>
+                <option value="percent">Percentage (%)</option>
+                <option value="referral">Referral Code</option>
+              </select></div>
+              <div id="cp-amount-wrap"><label class="form-label">Discount (MMK)</label><input type="number" class="form-input" id="cp-amount" value="0"></div>
+              <div id="cp-percent-wrap" style="display:none;"><label class="form-label">Discount (%)</label><input type="number" class="form-input" id="cp-percent" value="0" min="1" max="100"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="form-label">Max Uses</label><input type="number" class="form-input" id="cp-max-uses" value="1" min="1"></div>
+              <div><label class="form-label">Expires (optional)</label><input type="date" class="form-input" id="cp-expires"></div>
+            </div>
+            <div><label class="form-label">Course (optional - leave empty for all)</label><select class="form-input" id="cp-course">
+              <option value="">All Courses</option>
+              ${courses.map(c => `<option value="${c.id}">${c.title}</option>`).join('')}
+            </select></div>
+            <button class="btn btn-primary w-full" onclick="saveCoupon()">သိမ်းဆည်းရန်</button>
+          </div>
+        </div>
+      </div>`;
+  });
+}
+
+function couponTypeChanged() {
+  const type = document.getElementById('cp-type').value;
+  document.getElementById('cp-amount-wrap').style.display = type === 'fixed' ? '' : 'none';
+  document.getElementById('cp-percent-wrap').style.display = (type === 'percent' || type === 'referral') ? '' : 'none';
+}
+
+async function saveCoupon() {
+  const type = document.getElementById('cp-type').value;
+  const data = {
+    code: document.getElementById('cp-code').value,
+    type,
+    discount_amount: type === 'fixed' ? parseInt(document.getElementById('cp-amount').value) || 0 : 0,
+    discount_percent: (type === 'percent' || type === 'referral') ? parseInt(document.getElementById('cp-percent').value) || 0 : 0,
+    max_uses: parseInt(document.getElementById('cp-max-uses').value) || 1,
+    course_id: document.getElementById('cp-course').value || null,
+    expires_at: document.getElementById('cp-expires').value ? new Date(document.getElementById('cp-expires').value).toISOString() : null,
+  };
+  try {
+    await adminApi('/admin/coupons', { method: 'POST', body: JSON.stringify(data) });
+    closeModal(); showToast('ကူပွန် ထည့်ပြီးပါပြီ'); loadCoupons();
+  } catch (e) { showToast('Error: ' + e.message); }
+}
+
+async function toggleCoupon(id, active) {
+  await adminApi(`/admin/coupons/${id}`, { method: 'PUT', body: JSON.stringify({ is_active: active }) });
+  showToast(active ? 'Enabled' : 'Disabled'); loadCoupons();
+}
+
+async function deleteCoupon(id) {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-box" onclick="event.stopPropagation()" style="max-width:400px;">
+        <div class="flex justify-between items-center mb-4"><h3 class="font-bold">ကူပွန် ဖျက်ရန်</h3><button onclick="closeModal()" class="text-xl">&times;</button></div>
+        <p class="text-sm text-gray-600 mb-4">ဤ ကူပွန်ကို ဖျက်မှာ သေချာပါသလား?</p>
+        <div class="flex gap-2">
+          <button class="btn btn-danger flex-1" onclick="doDeleteCoupon(${id})">ဖျက်ရန်</button>
+          <button class="btn btn-outline flex-1" onclick="closeModal()">ပယ်ဖျက်ရန်</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function doDeleteCoupon(id) {
+  closeModal();
+  await adminApi(`/admin/coupons/${id}`, { method: 'DELETE' });
+  showToast('ဖျက်ပြီးပါပြီ'); loadCoupons();
 }
 
 // --- SETTINGS ---
