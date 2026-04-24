@@ -307,10 +307,10 @@ function showScreen(name, pushStack = true) {
   const mainScreens = ['home', 'mycourses', 'bookmarks', 'profile'];
   const back = document.getElementById('header-back');
   if (mainScreens.includes(name)) {
-    back.classList.add('hidden'); back.classList.remove('flex');
+    back.style.display = 'none';
     screenStack.length = 0; screenStack.push(name);
   } else {
-    back.classList.remove('hidden'); back.classList.add('flex');
+    back.style.display = 'flex';
     if (pushStack) screenStack.push(name);
   }
 
@@ -357,13 +357,40 @@ function applyLanguageUI() {
   document.querySelector('[data-nav="bookmarks"] span').textContent = _('nav_bookmarks');
   document.querySelector('[data-nav="profile"] span').textContent = _('nav_profile');
   document.getElementById('search-input').placeholder = _('search_placeholder');
+  const rt = document.getElementById('roadmaps-title');
+  if (rt) rt.innerHTML = _('roadmaps_title');
+  const ct = document.getElementById('courses-title');
+  if (ct) ct.innerHTML = _('courses_title');
+  const va = document.getElementById('view-all-btn');
+  if (va) va.textContent = _('view_all');
+  const mt = document.getElementById('mycourses-title');
+  if (mt) mt.innerHTML = _('my_courses_title');
+  const bt = document.getElementById('bookmarks-title');
+  if (bt) bt.innerHTML = _('bookmarks_title');
 }
 
 // ---- HOME ----
 async function loadHome() {
-  // Show skeleton loaders while loading
-  document.getElementById('roadmaps-list').innerHTML = Array(3).fill('<div class="card p-4 mb-3"><div class="flex items-center gap-3"><div class="skeleton w-10 h-10 rounded-xl"></div><div class="flex-1"><div class="skeleton h-4 w-3/4 mb-2"></div><div class="skeleton h-3 w-1/2"></div></div></div></div>').join('');
-  document.getElementById('courses-list').innerHTML = Array(3).fill('<div class="card p-4 mb-3"><div class="flex items-start gap-3"><div class="skeleton w-12 h-12 rounded-xl"></div><div class="flex-1"><div class="skeleton h-4 w-3/4 mb-2"></div><div class="skeleton h-3 w-full mb-2"></div><div class="skeleton h-5 w-20"></div></div></div></div>').join('');
+  // Skeleton loaders
+  document.getElementById('roadmaps-list').innerHTML = Array(4).fill(`
+    <div style="min-width:150px;scroll-snap-align:start;">
+      <div class="card" style="padding:20px;text-align:center;">
+        <div class="skeleton" style="width:48px;height:48px;border-radius:16px;margin:0 auto 10px;"></div>
+        <div class="skeleton" style="height:12px;width:80%;margin:0 auto 6px;"></div>
+        <div class="skeleton" style="height:10px;width:60%;margin:0 auto;"></div>
+      </div>
+    </div>`).join('');
+  document.getElementById('courses-list').innerHTML = Array(3).fill(`
+    <div class="card" style="padding:16px;">
+      <div style="display:flex;gap:14px;align-items:center;">
+        <div class="skeleton" style="width:56px;height:56px;border-radius:16px;flex-shrink:0;"></div>
+        <div style="flex:1;">
+          <div class="skeleton" style="height:14px;width:70%;margin-bottom:8px;"></div>
+          <div class="skeleton" style="height:11px;width:100%;margin-bottom:8px;"></div>
+          <div class="skeleton" style="height:22px;width:90px;border-radius:99px;"></div>
+        </div>
+      </div>
+    </div>`).join('');
 
   const [roadmaps, courses, announcements] = await Promise.all([
     api('/roadmaps'), api('/courses'), api('/announcements')
@@ -374,27 +401,29 @@ async function loadHome() {
     document.getElementById('announcement-text').textContent = announcements[0].title;
   }
 
-  document.querySelector('#roadmaps-section h2').textContent = _('roadmaps_title');
-  document.querySelector('#courses-section h2').textContent = _('courses_title');
-  document.querySelector('#courses-section .text-xs').textContent = _('view_all');
+  document.getElementById('roadmaps-title').innerHTML = _('roadmaps_title');
+  document.getElementById('courses-title').innerHTML = _('courses_title');
+  document.getElementById('view-all-btn').textContent = _('view_all');
 
-  // Build roadmap lookup for course cards
   roadmapMap = {};
   roadmaps.forEach(r => { roadmapMap[r.id] = r; });
 
+  // Horizontal scrollable roadmap cards
   const rl = document.getElementById('roadmaps-list');
-  rl.innerHTML = roadmaps.map(r => `
-    <div class="card roadmap-card p-4 cursor-pointer" style="border-left-color: ${r.color}" onclick="loadRoadmapCourses(${r.id}, '${r.icon} ${r.title}')">
-      <div class="flex items-center gap-3">
-        <span class="text-2xl">${r.icon}</span>
-        <div class="flex-1 min-w-0">
-          <h3 class="font-bold text-sm truncate">${r.title}</h3>
-          <p class="text-xs opacity-60 truncate">${r.description || ''}</p>
+  rl.innerHTML = roadmaps.map(r => {
+    const color = r.color || '#6C5CE7';
+    return `
+    <div style="min-width:150px;scroll-snap-align:start;cursor:pointer;" onclick="loadRoadmapCourses(${r.id}, '${(r.icon + ' ' + r.title).replace(/'/g, "\\'")}')">
+      <div class="card card-elevated" style="padding:20px;text-align:center;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:${color};opacity:0.08;"></div>
+        <div style="width:48px;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 10px;background:${color}15;">
+          ${r.icon}
         </div>
-        <svg width="16" height="16" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M6 4l4 4-4 4"/></svg>
+        <h3 style="font-size:13px;font-weight:700;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.title}</h3>
+        <p style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.description || ''}</p>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 
   const cl = document.getElementById('courses-list');
   cl.innerHTML = courses.slice(0, 6).map(c => courseCard(c)).join('');
@@ -402,26 +431,28 @@ async function loadHome() {
 
 function courseCard(c) {
   const rm = roadmapMap[c.roadmap_id];
-  const cardColor = rm ? rm.color : '#6366f1';
+  const cardColor = rm ? rm.color : '#6C5CE7';
   const cardIcon = rm ? rm.icon : '📖';
+  const diffColor = difficultyColor(c.difficulty);
   return `
-    <div class="card p-4 cursor-pointer" style="border-left: 3px solid ${cardColor};" onclick="loadCourse(${c.id})">
-      <div class="flex items-start gap-3">
-        <div class="w-12 h-12 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style="background: ${c.thumbnail_url ? '' : cardColor + '15'};">
-          ${c.thumbnail_url ? `<img src="${c.thumbnail_url}" class="w-full h-full rounded-xl object-cover">` : cardIcon}
+    <div class="card card-elevated" style="cursor:pointer;padding:16px;" onclick="loadCourse(${c.id})">
+      <div style="display:flex;gap:14px;align-items:flex-start;">
+        <div style="width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;position:relative;overflow:hidden;${c.thumbnail_url ? '' : 'background:' + cardColor + '12;'}">
+          ${c.thumbnail_url ? `<img src="${c.thumbnail_url}" style="width:100%;height:100%;object-fit:cover;border-radius:16px;">` : cardIcon}
         </div>
-        <div class="flex-1 min-w-0">
-          <h3 class="font-bold text-sm">${c.title}</h3>
-          <p class="text-xs opacity-60 mt-0.5 line-clamp-2">${c.description || ''}</p>
-          <div class="flex items-center gap-2 mt-2">
-            <span class="badge badge-blue">${formatMMK(c.price_mmk)}</span>
-            <span class="flex items-center gap-1 text-xs opacity-50">
-              <span class="difficulty-dot" style="background:${difficultyColor(c.difficulty)}"></span>
+        <div style="flex:1;min-width:0;">
+          <h3 style="font-size:15px;font-weight:700;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.title}</h3>
+          <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:10px;" class="line-clamp-2">${c.description || ''}</p>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span class="badge badge-blue" style="font-size:12px;">${formatMMK(c.price_mmk)}</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);font-weight:600;">
+              <span class="difficulty-dot" style="background:${diffColor};"></span>
               ${difficultyLabel(c.difficulty)}
             </span>
-            ${c.duration_hours ? `<span class="text-xs opacity-50">⏱ ${c.duration_hours}hr</span>` : ''}
+            ${c.duration_hours ? `<span style="font-size:11px;color:var(--text-muted);">⏱ ${c.duration_hours}hr</span>` : ''}
           </div>
         </div>
+        <svg width="16" height="16" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;margin-top:6px;"><path d="M6 4l4 4-4 4"/></svg>
       </div>
     </div>`;
 }
@@ -434,12 +465,22 @@ function loadAllCourses() {
 
 async function loadRoadmapCourses(roadmapId, title) {
   showScreen('roadmap-courses');
-  document.getElementById('roadmap-title').textContent = title;
-  document.getElementById('roadmap-courses-list').innerHTML = Array(3).fill('<div class="card p-4 mb-3"><div class="flex gap-3"><div class="skeleton w-12 h-12 rounded-xl"></div><div class="flex-1"><div class="skeleton h-4 w-3/4 mb-2"></div><div class="skeleton h-3 w-full mb-2"></div><div class="skeleton h-5 w-20"></div></div></div></div>').join('');
+  document.getElementById('roadmap-title').innerHTML = title;
+  document.getElementById('roadmap-courses-list').innerHTML = Array(3).fill(`
+    <div class="card" style="padding:16px;">
+      <div style="display:flex;gap:14px;align-items:center;">
+        <div class="skeleton" style="width:56px;height:56px;border-radius:16px;flex-shrink:0;"></div>
+        <div style="flex:1;">
+          <div class="skeleton" style="height:14px;width:70%;margin-bottom:8px;"></div>
+          <div class="skeleton" style="height:11px;width:100%;margin-bottom:8px;"></div>
+          <div class="skeleton" style="height:22px;width:90px;border-radius:99px;"></div>
+        </div>
+      </div>
+    </div>`).join('');
   const courses = await api(`/courses?roadmap_id=${roadmapId}`);
   document.getElementById('roadmap-courses-list').innerHTML = courses.length > 0
     ? courses.map(c => courseCard(c)).join('')
-    : `<div class="text-center py-8 opacity-50"><p>${_('no_courses_roadmap')}</p></div>`;
+    : `<div class="empty-state"><span class="empty-state-icon">📚</span><p class="empty-state-title">${_('no_courses_roadmap')}</p></div>`;
 }
 
 // ---- SEARCH ----
@@ -468,7 +509,16 @@ function handleSearch(q) {
 async function loadCourse(id) {
   showScreen('course');
   const el = document.getElementById('course-detail');
-  el.innerHTML = '<div class="space-y-3"><div class="skeleton h-8 w-3/4"></div><div class="skeleton h-4 w-full"></div><div class="skeleton h-4 w-2/3"></div><div class="skeleton h-32 w-full"></div></div>';
+  el.innerHTML = `<div style="padding:16px;">
+    <div class="skeleton" style="height:28px;width:75%;margin-bottom:12px;"></div>
+    <div class="skeleton" style="height:14px;width:100%;margin-bottom:8px;"></div>
+    <div class="skeleton" style="height:14px;width:65%;margin-bottom:16px;"></div>
+    <div style="display:flex;gap:8px;margin-bottom:20px;">
+      <div class="skeleton" style="height:28px;width:100px;border-radius:99px;"></div>
+      <div class="skeleton" style="height:28px;width:80px;border-radius:99px;"></div>
+    </div>
+    <div class="skeleton" style="height:140px;width:100%;border-radius:20px;"></div>
+  </div>`;
 
   const [course, modules, reviews, discussions] = await Promise.all([
     api(`/courses/${id}`), api(`/courses/${id}/modules`), api(`/courses/${id}/reviews`), api(`/courses/${id}/discussions`)
@@ -501,30 +551,54 @@ async function loadCourse(id) {
   const progressPct = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
   const avgRating = reviews.length > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : null;
 
+  const rm = roadmapMap[course.roadmap_id];
+  const heroColor = rm ? rm.color : '#6C5CE7';
+  const heroIcon = rm ? rm.icon : '📖';
+
   let html = `
-    <div class="mb-4">
-      <h1 class="text-xl font-bold">${course.title}</h1>
-      <p class="text-sm opacity-70 mt-1">${course.description || ''}</p>
-      <div class="flex flex-wrap items-center gap-2 mt-3">
-        <span class="badge badge-blue text-sm">${formatMMK(course.price_mmk)}</span>
-        <span class="flex items-center gap-1 text-xs"><span class="difficulty-dot" style="background:${difficultyColor(course.difficulty)}"></span>${difficultyLabel(course.difficulty)}</span>
-        ${course.duration_hours ? `<span class="text-xs opacity-50">⏱ ${course.duration_hours} ${lang === 'my' ? 'နာရီ' : 'hr'}</span>` : ''}
-        ${avgRating ? `<span class="text-xs">⭐ ${avgRating} (${reviews.length})</span>` : ''}
+    <!-- Course Hero -->
+    <div style="background:linear-gradient(135deg, ${heroColor}dd, ${heroColor}88);padding:28px 20px 24px;position:relative;overflow:hidden;">
+      <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.1);"></div>
+      <div style="position:absolute;bottom:-20px;left:-20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.06);"></div>
+      <div style="position:relative;z-index:1;">
+        <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.2);backdrop-filter:blur(10px);padding:6px 14px;border-radius:99px;margin-bottom:14px;">
+          <span style="font-size:14px;">${heroIcon}</span>
+          <span style="font-size:12px;color:#fff;font-weight:600;">${rm ? rm.title : ''}</span>
+        </div>
+        <h1 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;line-height:1.3;">${course.title}</h1>
+        <p style="font-size:13px;color:rgba(255,255,255,0.85);line-height:1.6;">${course.description || ''}</p>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px;">
+          <span style="background:rgba(255,255,255,0.2);backdrop-filter:blur(10px);color:#fff;padding:6px 14px;border-radius:99px;font-size:13px;font-weight:700;">${formatMMK(course.price_mmk)}</span>
+          <span style="display:inline-flex;align-items:center;gap:4px;color:rgba(255,255,255,0.9);font-size:12px;font-weight:600;">
+            <span class="difficulty-dot" style="background:${difficultyColor(course.difficulty)};box-shadow:0 0 6px ${difficultyColor(course.difficulty)};"></span>
+            ${difficultyLabel(course.difficulty)}
+          </span>
+          ${course.duration_hours ? `<span style="color:rgba(255,255,255,0.8);font-size:12px;">⏱ ${course.duration_hours} ${lang === 'my' ? 'နာရီ' : 'hr'}</span>` : ''}
+          ${avgRating ? `<span style="color:rgba(255,255,255,0.9);font-size:12px;">⭐ ${avgRating} (${reviews.length})</span>` : ''}
+        </div>
       </div>
-    </div>`;
+    </div>
+    <div style="padding:16px;">`;
 
   if (isEnrolled && totalLessons > 0) {
     html += `
-      <div class="card p-4 mb-4">
-        <div class="flex justify-between text-xs mb-2"><span class="font-medium">${_('progress_label')}</span><span class="font-bold">${progressPct}%</span></div>
+      <div class="card card-elevated" style="padding:18px;margin-bottom:16px;background:linear-gradient(135deg,rgba(108,92,231,0.04),rgba(0,206,201,0.04));">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">${_('progress_label')}</span>
+          <span style="font-size:18px;font-weight:800;color:var(--primary);">${progressPct}%</span>
+        </div>
         <div class="progress-bar"><div class="progress-fill" style="width:${progressPct}%"></div></div>
-        <p class="text-xs opacity-50 mt-1">${completedLessons}/${totalLessons} ${_('lessons_done')}</p>
-        ${progressPct === 100 && !cert ? `<button class="btn-primary mt-3" onclick="generateCert(${id})">${_('get_cert')}</button>` : ''}
-        ${cert ? `<div class="mt-3 p-3 rounded-xl bg-green-50 text-center"><p class="text-sm font-bold text-green-700">${_('cert_earned')}</p><p class="text-xs text-green-600 mt-1">${_('cert_number')}: ${cert.certificate_number}</p><button class="btn-outline mt-2 text-xs" onclick="viewCertificate('${cert.certificate_number}', '${course.title}')">${_('view_cert')}</button></div>` : ''}
+        <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">${completedLessons}/${totalLessons} ${_('lessons_done')}</p>
+        ${progressPct === 100 && !cert ? `<button class="btn-primary" style="margin-top:14px;" onclick="generateCert(${id})">${_('get_cert')}</button>` : ''}
+        ${cert ? `<div style="margin-top:14px;padding:16px;border-radius:16px;background:linear-gradient(135deg,#00B894,#55EFC4);text-align:center;">
+          <p style="font-size:14px;font-weight:700;color:#fff;">${_('cert_earned')}</p>
+          <p style="font-size:12px;color:rgba(255,255,255,0.85);margin-top:4px;">${_('cert_number')}: ${cert.certificate_number}</p>
+          <button class="btn-ghost" style="margin-top:10px;background:rgba(255,255,255,0.25);color:#fff;" onclick="viewCertificate('${cert.certificate_number}', '${course.title}')">${_('view_cert')}</button>
+        </div>` : ''}
       </div>`;
   }
 
-  html += `<div class="flex gap-2 mb-4 overflow-x-auto">
+  html += `<div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;">
     <button class="tab-btn active" onclick="switchCourseTab('content', this)">${_('tab_content')}</button>
     ${isEnrolled ? `<button class="tab-btn" onclick="switchCourseTab('discuss', this)">${_('tab_discuss')} (${discussions.length})</button>` : ''}
     <button class="tab-btn" onclick="switchCourseTab('reviews', this)">${_('tab_reviews')} (${reviews.length})</button>
@@ -534,64 +608,94 @@ async function loadCourse(id) {
   if (modules.length > 0) {
     modules.forEach((m, mi) => {
       const mComplete = m.lessons.filter(l => l.completed).length;
-      html += `<div class="card mb-3 overflow-hidden">
-        <div class="p-3 flex items-center gap-2 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('hidden')">
-          <span class="text-xs opacity-40 font-bold">${mi + 1}</span>
-          <span class="font-medium text-sm flex-1">${m.title}</span>
-          ${isEnrolled ? `<span class="text-xs opacity-50">${mComplete}/${m.lessons.length}</span>` : `<span class="text-xs opacity-50">${m.lessons.length} ${_('items')}</span>`}
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l4 4 4-4"/></svg>
+      html += `<div class="card" style="margin-bottom:12px;">
+        <div style="padding:14px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="this.nextElementSibling.classList.toggle('hidden')">
+          <div style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:rgba(108,92,231,0.1);color:var(--primary);">${mi + 1}</div>
+          <span style="flex:1;font-size:14px;font-weight:700;">${m.title}</span>
+          ${isEnrolled ? `<span style="font-size:12px;color:var(--text-muted);font-weight:600;">${mComplete}/${m.lessons.length}</span>` : `<span style="font-size:12px;color:var(--text-muted);">${m.lessons.length} ${_('items')}</span>`}
+          <svg width="14" height="14" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round"><path d="M3 5l4 4 4-4"/></svg>
         </div>
-        <div class="border-t px-3 pb-2">`;
+        <div style="border-top:1px solid var(--border);padding:6px 16px 10px;">`;
       m.lessons.forEach(l => {
         const locked = !isEnrolled;
-        html += `<div class="flex items-center gap-2 py-2 cursor-pointer ${locked ? 'opacity-40' : ''}" onclick="${locked ? '' : `loadLesson(${l.id})`}">
-          ${l.completed ? '<span class="text-green-500">✅</span>' : locked ? '🔒' : '<span class="opacity-30">○</span>'}
-          <span class="text-sm flex-1">${l.title}</span>
-          ${l.video_url ? '<span class="text-xs opacity-40">🎬</span>' : ''}
-          ${l.file_url ? '<span class="text-xs opacity-40">📎</span>' : ''}
+        html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:${locked?'default':'pointer'};opacity:${locked?'0.45':'1'};" onclick="${locked ? '' : `loadLesson(${l.id})`}">
+          ${l.completed ? '<div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#00B894,#55EFC4);display:flex;align-items:center;justify-content:center;"><svg width="12" height="12" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M2 6l3 3 5-5"/></svg></div>'
+            : locked ? '<div style="width:22px;height:22px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;">🔒</div>'
+            : '<div style="width:22px;height:22px;border-radius:50%;border:2px solid var(--border);"></div>'}
+          <span style="flex:1;font-size:13px;font-weight:500;">${l.title}</span>
+          ${l.video_url ? '<span style="font-size:11px;opacity:0.5;">🎬</span>' : ''}
+          ${l.file_url ? '<span style="font-size:11px;opacity:0.5;">📎</span>' : ''}
         </div>`;
       });
       html += `</div></div>`;
     });
   } else {
-    html += `<div class="text-center py-6 opacity-50"><p class="text-sm">${_('no_content')}</p></div>`;
+    html += `<div class="empty-state" style="padding:32px;"><span class="empty-state-icon" style="font-size:40px;">📝</span><p class="empty-state-title">${_('no_content')}</p></div>`;
   }
   html += `</div>`;
 
   html += `<div id="tab-discuss" class="hidden">`;
   if (isEnrolled) {
-    html += `<div class="mb-4"><textarea id="discuss-input" class="w-full p-3 rounded-xl text-sm border" style="background: var(--tg-theme-secondary-bg-color, #f8f9fa); border-color: #e2e8f0;" rows="2" placeholder="${_('discuss_placeholder')}"></textarea>
-      <button class="btn-primary mt-2 text-sm" onclick="postDiscussion(${id})">${_('send')}</button></div>`;
-    html += discussions.map(d => `<div class="card p-3 mb-2"><div class="flex items-center gap-2 mb-1"><span class="font-bold text-xs">${d.first_name || d.username || 'User'}</span><span class="text-xs opacity-40">${timeAgo(d.created_at)}</span></div><p class="text-sm">${d.message}</p></div>`).join('');
-    if (discussions.length === 0) html += `<p class="text-center text-sm opacity-50 py-4">${_('no_discussions')}</p>`;
+    html += `<div style="margin-bottom:16px;">
+      <textarea id="discuss-input" style="width:100%;padding:14px;border-radius:var(--radius-sm);font-size:14px;border:1.5px solid var(--border);background:var(--bg-card);color:var(--text);outline:none;resize:none;" rows="2" placeholder="${_('discuss_placeholder')}" onfocus="this.style.borderColor='var(--primary-light)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      <button class="btn-primary" style="margin-top:10px;font-size:14px;" onclick="postDiscussion(${id})">${_('send')}</button></div>`;
+    html += discussions.map(d => `<div class="card" style="padding:14px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:700;">${(d.first_name || d.username || 'U')[0]}</div>
+        <span style="font-size:13px;font-weight:700;">${d.first_name || d.username || 'User'}</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:auto;">${timeAgo(d.created_at)}</span>
+      </div>
+      <p style="font-size:14px;line-height:1.6;color:var(--text-secondary);">${d.message}</p>
+    </div>`).join('');
+    if (discussions.length === 0) html += `<div class="empty-state" style="padding:24px;"><span style="font-size:36px;">💬</span><p class="empty-state-desc">${_('no_discussions')}</p></div>`;
   }
   html += `</div>`;
 
   html += `<div id="tab-reviews" class="hidden">`;
   if (isEnrolled) {
-    html += `<div class="card p-3 mb-4"><p class="text-xs font-medium mb-2">${_('your_review')}</p>
-      <div class="flex gap-1 mb-2" id="rating-stars">${[1,2,3,4,5].map(i => `<span class="text-2xl cursor-pointer" onclick="setRating(${i})">☆</span>`).join('')}</div>
-      <textarea id="review-comment" class="w-full p-2 rounded-lg text-sm border" style="background: var(--tg-theme-secondary-bg-color, #f8f9fa); border-color: #e2e8f0;" rows="2" placeholder="${_('review_placeholder')}"></textarea>
-      <button class="btn-primary mt-2 text-sm" onclick="submitReview(${id})">${_('send_review')}</button></div>`;
+    html += `<div class="card card-elevated" style="padding:16px;margin-bottom:16px;">
+      <p style="font-size:13px;font-weight:700;margin-bottom:10px;">${_('your_review')}</p>
+      <div id="rating-stars" style="display:flex;gap:4px;margin-bottom:10px;">${[1,2,3,4,5].map(i => `<span style="font-size:28px;cursor:pointer;transition:transform 0.15s;" onclick="setRating(${i})" onmouseenter="this.style.transform='scale(1.2)'" onmouseleave="this.style.transform='scale(1)'">☆</span>`).join('')}</div>
+      <textarea id="review-comment" style="width:100%;padding:12px;border-radius:var(--radius-xs);font-size:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);outline:none;resize:none;" rows="2" placeholder="${_('review_placeholder')}" onfocus="this.style.borderColor='var(--primary-light)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      <button class="btn-primary" style="margin-top:10px;font-size:14px;" onclick="submitReview(${id})">${_('send_review')}</button>
+    </div>`;
   }
-  html += reviews.map(r => `<div class="card p-3 mb-2"><div class="flex items-center gap-2 mb-1"><span class="font-bold text-xs">${r.first_name || r.username || 'User'}</span><span class="text-yellow-500 text-xs">${'⭐'.repeat(r.rating)}</span></div><p class="text-sm opacity-70">${r.comment || ''}</p></div>`).join('');
-  if (reviews.length === 0) html += `<p class="text-center text-sm opacity-50 py-4">${_('no_reviews')}</p>`;
+  html += reviews.map(r => `<div class="card" style="padding:14px;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#FDCB6E,#F8A500);display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:700;">${(r.first_name || r.username || 'U')[0]}</div>
+      <span style="font-size:13px;font-weight:700;">${r.first_name || r.username || 'User'}</span>
+      <span style="font-size:13px;color:#F8A500;">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span>
+    </div>
+    <p style="font-size:13px;color:var(--text-secondary);line-height:1.5;">${r.comment || ''}</p>
+  </div>`).join('');
+  if (reviews.length === 0) html += `<div class="empty-state" style="padding:24px;"><span style="font-size:36px;">⭐</span><p class="empty-state-desc">${_('no_reviews')}</p></div>`;
   html += `</div>`;
 
   if (!isEnrolled) {
     if (paymentStatus === 'pending') {
-      html += `<div class="mt-4 p-4 rounded-xl text-center" style="background: #fef3c7;"><p class="text-sm font-medium text-amber-800">${_('payment_pending')}</p><p class="text-xs text-amber-700 mt-1">${_('payment_pending_sub')}</p></div>`;
+      html += `<div style="margin-top:20px;padding:20px;border-radius:var(--radius);text-align:center;background:linear-gradient(135deg,#FFEAA7,#FDCB6E);box-shadow:0 2px 10px rgba(253,203,110,0.3);">
+        <p style="font-size:24px;margin-bottom:8px;">⏳</p>
+        <p style="font-size:14px;font-weight:700;color:#6C5200;">${_('payment_pending')}</p>
+        <p style="font-size:12px;color:#8B6914;margin-top:4px;">${_('payment_pending_sub')}</p>
+      </div>`;
     } else if (paymentStatus === 'rejected') {
-      html += `<div class="mt-4"><div class="p-3 rounded-xl mb-3 text-center" style="background: #fee2e2;"><p class="text-sm font-medium text-red-800">${_('payment_rejected')}</p></div>
-        <button class="btn-primary" onclick="startPayment(${id})">${_('retry_payment')}</button></div>`;
+      html += `<div style="margin-top:20px;">
+        <div style="padding:16px;border-radius:var(--radius);margin-bottom:12px;text-align:center;background:linear-gradient(135deg,#FAB1A0,#E17055);box-shadow:0 2px 10px rgba(225,112,85,0.3);">
+          <p style="font-size:14px;font-weight:700;color:#fff;">${_('payment_rejected')}</p>
+        </div>
+        <button class="btn-primary" onclick="startPayment(${id})">${_('retry_payment')}</button>
+      </div>`;
     } else if (course.price_mmk > 0) {
-      html += `<div class="mt-4 flex gap-2">
-        <button class="btn-primary flex-1" onclick="startPayment(${id})">${_('pay_btn')} (${formatMMK(course.price_mmk)})</button>
-        <button class="btn-outline px-4" onclick="toggleBookmark(${id})">🔖</button></div>`;
+      html += `<div style="margin-top:20px;display:flex;gap:10px;">
+        <button class="btn-primary" style="flex:1;" onclick="startPayment(${id})">${_('pay_btn')} (${formatMMK(course.price_mmk)})</button>
+        <button class="btn-outline" style="padding:13px 18px;flex-shrink:0;" onclick="toggleBookmark(${id})">🔖</button>
+      </div>`;
     } else {
-      html += `<button class="btn-primary mt-4" onclick="startPayment(${id})">${_('free_enroll')}</button>`;
+      html += `<button class="btn-primary" style="margin-top:20px;" onclick="startPayment(${id})">${_('free_enroll')}</button>`;
     }
   }
+
+  html += `</div>`; // close padding div
 
   el.innerHTML = html;
 }
@@ -1047,9 +1151,18 @@ function copyAddress(addr) {
 
 // ---- MY COURSES ----
 async function loadMyCourses() {
-  document.querySelector('#screen-mycourses h2').textContent = _('my_courses_title');
+  document.getElementById('mycourses-title').innerHTML = _('my_courses_title');
   if (!initData) { document.getElementById('no-courses').classList.remove('hidden'); return; }
-  document.getElementById('my-courses-list').innerHTML = Array(2).fill('<div class="card p-4 mb-3"><div class="flex gap-3"><div class="skeleton w-12 h-12 rounded-xl"></div><div class="flex-1"><div class="skeleton h-4 w-3/4 mb-2"></div><div class="skeleton h-3 w-1/2"></div></div></div></div>').join('');
+  document.getElementById('my-courses-list').innerHTML = Array(2).fill(`
+    <div class="card" style="padding:16px;">
+      <div style="display:flex;gap:14px;align-items:center;">
+        <div class="skeleton" style="width:56px;height:56px;border-radius:16px;flex-shrink:0;"></div>
+        <div style="flex:1;">
+          <div class="skeleton" style="height:14px;width:70%;margin-bottom:8px;"></div>
+          <div class="skeleton" style="height:11px;width:50%;"></div>
+        </div>
+      </div>
+    </div>`).join('');
   try {
     const courses = await api('/my-courses');
     const el = document.getElementById('my-courses-list');
@@ -1062,7 +1175,7 @@ async function loadMyCourses() {
 
 // ---- BOOKMARKS ----
 async function loadBookmarks() {
-  document.querySelector('#screen-bookmarks h2').textContent = _('bookmarks_title');
+  document.getElementById('bookmarks-title').innerHTML = _('bookmarks_title');
   if (!initData) { document.getElementById('no-bookmarks').classList.remove('hidden'); return; }
   try {
     const bookmarks = await api('/bookmarks');
@@ -1076,7 +1189,6 @@ async function loadBookmarks() {
 
 // ---- PROFILE ----
 async function loadProfile() {
-  document.querySelector('#screen-profile h3').textContent = _('payment_history');
   if (tgUser) {
     document.getElementById('profile-avatar').textContent = (tgUser.first_name || '?')[0];
     document.getElementById('profile-name').textContent = tgUser.first_name || _('profile_user');
@@ -1090,17 +1202,34 @@ async function loadProfile() {
     const el = document.getElementById('payment-history');
     let html = '';
     if (payments.length > 0) {
-      html += payments.map(p => `<div class="card p-3"><div class="flex items-center justify-between"><div><p class="text-sm font-medium">${p.courses?.title || ''}</p><p class="text-xs opacity-50 mt-0.5">${timeAgo(p.created_at)}</p></div>${statusBadge(p.status)}</div>${p.admin_note ? `<p class="text-xs mt-2 opacity-60">📝 ${p.admin_note}</p>` : ''}</div>`).join('');
+      html += payments.map(p => `<div class="card" style="padding:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <p style="font-size:14px;font-weight:700;">${p.courses?.title || ''}</p>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:3px;">${timeAgo(p.created_at)}</p>
+          </div>
+          ${statusBadge(p.status)}
+        </div>
+        ${p.admin_note ? `<p style="font-size:12px;color:var(--text-secondary);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">📝 ${p.admin_note}</p>` : ''}
+      </div>`).join('');
     }
     if (cryptoPayments.length > 0) {
-      html += `<h4 class="text-sm font-bold mt-4 mb-2">${_('crypto_history')}</h4>`;
+      html += `<h4 style="font-size:14px;font-weight:700;margin:16px 0 10px;">${_('crypto_history')}</h4>`;
       html += cryptoPayments.map(p => {
         const stLabel = { waiting: _('crypto_waiting'), confirming: _('crypto_confirming'), confirmed: _('crypto_confirmed'), finished: _('crypto_finished'), failed: _('crypto_failed'), expired: _('crypto_expired'), refunded: _('crypto_refunded') }[p.status] || p.status;
         const stCls = p.status === 'finished' ? 'badge-green' : ['failed', 'expired'].includes(p.status) ? 'badge-red' : 'badge-yellow';
-        return `<div class="card p-3"><div class="flex items-center justify-between"><div><p class="text-sm font-medium">${p.courses?.title || ''}</p><p class="text-xs opacity-50 mt-0.5">${p.pay_amount} ${(p.pay_currency || '').toUpperCase()} · ${timeAgo(p.created_at)}</p></div><span class="badge ${stCls}">${stLabel}</span></div></div>`;
+        return `<div class="card" style="padding:14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <p style="font-size:14px;font-weight:700;">${p.courses?.title || ''}</p>
+              <p style="font-size:12px;color:var(--text-muted);margin-top:3px;">${p.pay_amount} ${(p.pay_currency || '').toUpperCase()} · ${timeAgo(p.created_at)}</p>
+            </div>
+            <span class="badge ${stCls}">${stLabel}</span>
+          </div>
+        </div>`;
       }).join('');
     }
-    if (!html) html = `<p class="text-center text-sm opacity-50 py-4">${_('no_payments')}</p>`;
+    if (!html) html = `<div class="empty-state"><span class="empty-state-icon">💳</span><p class="empty-state-desc">${_('no_payments')}</p></div>`;
     el.innerHTML = html;
   } catch (e) {}
 }
@@ -1118,19 +1247,22 @@ function viewCertificate(certNumber, courseTitle) {
   showScreen('certificate');
   const user = tgUser || {};
   document.getElementById('certificate-detail').innerHTML = `
-    <div class="card p-6 text-center" style="border: 3px solid #6366f1;">
-      <p class="text-4xl mb-3">🎓</p>
-      <h2 class="text-lg font-bold" style="color: #6366f1;">${_('cert_title')}</h2>
-      <p class="text-xs opacity-50 mb-4">${_('cert_subtitle')}</p>
-      <p class="text-sm opacity-60 mb-1">${_('cert_for')}</p>
-      <h3 class="text-xl font-bold mb-1">${user.first_name || 'Student'} ${user.last_name || ''}</h3>
-      <p class="text-sm opacity-60 mb-4">${_('cert_awarded')}</p>
-      <div class="p-3 rounded-xl mb-4" style="background: #f5f3ff;">
-        <p class="text-base font-bold" style="color: #6366f1;">${courseTitle}</p>
+    <div class="card card-elevated" style="padding:32px 24px;text-align:center;border:2px solid var(--primary);position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,var(--primary),var(--accent));"></div>
+      <div style="position:absolute;top:-40px;right:-40px;width:120px;height:120px;border-radius:50%;background:rgba(108,92,231,0.05);"></div>
+      <div style="position:absolute;bottom:-40px;left:-40px;width:100px;height:100px;border-radius:50%;background:rgba(0,206,201,0.05);"></div>
+      <p style="font-size:48px;margin-bottom:12px;">🎓</p>
+      <h2 style="font-size:20px;font-weight:800;color:var(--primary);margin-bottom:4px;">${_('cert_title')}</h2>
+      <p style="font-size:12px;color:var(--text-muted);letter-spacing:2px;margin-bottom:24px;">${_('cert_subtitle')}</p>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">${_('cert_for')}</p>
+      <h3 style="font-size:22px;font-weight:800;margin-bottom:4px;">${user.first_name || 'Student'} ${user.last_name || ''}</h3>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">${_('cert_awarded')}</p>
+      <div style="padding:14px;border-radius:var(--radius-sm);background:linear-gradient(135deg,rgba(108,92,231,0.06),rgba(0,206,201,0.06));margin-bottom:20px;">
+        <p style="font-size:16px;font-weight:700;color:var(--primary);">${courseTitle}</p>
       </div>
-      <p class="text-sm opacity-60 mb-1">${_('cert_completed')}</p>
-      <p class="text-xs opacity-40">${_('cert_number')}: ${certNumber}</p>
-      <p class="text-xs opacity-40 mt-1">${_('cert_date')}: ${new Date().toLocaleDateString(lang === 'my' ? 'my-MM' : 'en-US')}</p>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">${_('cert_completed')}</p>
+      <p style="font-size:12px;color:var(--text-muted);">${_('cert_number')}: ${certNumber}</p>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">${_('cert_date')}: ${new Date().toLocaleDateString(lang === 'my' ? 'my-MM' : 'en-US')}</p>
     </div>`;
 }
 

@@ -77,12 +77,36 @@ async function loadStats() {
   else badge.classList.add('hidden');
 
   document.getElementById('stats-grid').innerHTML = `
-    <div class="stat-card"><p class="text-xs text-gray-500 mb-1">💰 စုစုပေါင်း ဝင်ငွေ</p><p class="text-2xl font-bold" style="color:#6366f1">${formatMMK(stats.totalRevenue)}</p></div>
-    <div class="stat-card"><p class="text-xs text-gray-500 mb-1">👥 အသုံးပြုသူ</p><p class="text-2xl font-bold">${stats.totalUsers}</p></div>
-    <div class="stat-card"><p class="text-xs text-gray-500 mb-1">📖 သင်တန်း</p><p class="text-2xl font-bold">${stats.totalCourses}</p></div>
-    <div class="stat-card"><p class="text-xs text-gray-500 mb-1">⏳ စိစစ်ရန်</p><p class="text-2xl font-bold" style="color:#f59e0b">${stats.pendingPayments}</p></div>
-    <div class="stat-card"><p class="text-xs text-gray-500 mb-1">📝 စာရင်းသွင်းပြီး</p><p class="text-2xl font-bold" style="color:#22c55e">${stats.approvedEnrollments}</p></div>
-    <div class="stat-card"><p class="text-xs text-gray-500 mb-1">💳 ငွေပေးချေမှု စုစုပေါင်း</p><p class="text-2xl font-bold">${stats.totalPayments}</p></div>
+    <div class="stat-card" style="background:linear-gradient(135deg,#EEF2FF,#E0E7FF);border:none;">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#818CF8);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px;box-shadow:0 2px 8px rgba(99,102,241,0.3);">💰</div>
+      <p class="text-xs text-gray-500 font-semibold mb-1">စုစုပေါင်း ဝင်ငွေ</p>
+      <p class="text-2xl font-bold" style="color:#4F46E5">${formatMMK(stats.totalRevenue)}</p>
+    </div>
+    <div class="stat-card">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#DBEAFE,#BFDBFE);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px;">👥</div>
+      <p class="text-xs text-gray-500 font-semibold mb-1">အသုံးပြုသူ</p>
+      <p class="text-2xl font-bold text-gray-800">${stats.totalUsers}</p>
+    </div>
+    <div class="stat-card">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#D1FAE5,#A7F3D0);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px;">📖</div>
+      <p class="text-xs text-gray-500 font-semibold mb-1">သင်တန်း</p>
+      <p class="text-2xl font-bold text-gray-800">${stats.totalCourses}</p>
+    </div>
+    <div class="stat-card">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#FEF3C7,#FDE68A);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px;">⏳</div>
+      <p class="text-xs text-gray-500 font-semibold mb-1">စိစစ်ရန်</p>
+      <p class="text-2xl font-bold" style="color:#D97706">${stats.pendingPayments}</p>
+    </div>
+    <div class="stat-card">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#D1FAE5,#6EE7B7);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px;">📝</div>
+      <p class="text-xs text-gray-500 font-semibold mb-1">စာရင်းသွင်းပြီး</p>
+      <p class="text-2xl font-bold" style="color:#059669">${stats.approvedEnrollments}</p>
+    </div>
+    <div class="stat-card">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#FCE7F3,#FBCFE8);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px;">💳</div>
+      <p class="text-xs text-gray-500 font-semibold mb-1">ငွေပေးချေမှု စုစုပေါင်း</p>
+      <p class="text-2xl font-bold text-gray-800">${stats.totalPayments}</p>
+    </div>
   `;
 }
 
