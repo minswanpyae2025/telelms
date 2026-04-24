@@ -403,7 +403,8 @@ app.delete('/api/admin/roadmaps/:id', validateAdmin, async (req, res) => {
 app.post('/api/admin/courses', validateAdmin, async (req, res) => {
   await supabase.from('courses').insert({
     roadmap_id: req.body.roadmap_id || null, title: req.body.title, description: req.body.description || '',
-    price_mmk: parseInt(req.body.price_mmk) || 0, telegram_group_id: req.body.telegram_group_id || null,
+    price_mmk: parseInt(req.body.price_mmk) || 0, price_usdt: req.body.price_usdt != null ? parseFloat(req.body.price_usdt) : null,
+    telegram_group_id: req.body.telegram_group_id || null,
     difficulty: req.body.difficulty || 'beginner', duration_hours: req.body.duration_hours ? parseInt(req.body.duration_hours) : null, order_index: req.body.order_index || 0,
   });
   res.json({ success: true });
