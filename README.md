@@ -1,135 +1,90 @@
-# TeleLMS - Telegram Mini App LMS
+# 🎓 လမ်းစ (Lann Sa) - Telegram Mini App LMS
 
-A full-stack Learning Management System built as a Telegram Mini App with career pathway sorting and manual payment approval workflow for Myanmar.
+A Telegram-native Learning Management System built for Myanmar. Users browse career roadmaps, enroll in courses, pay via Myanmar payment methods (KBZ Pay, Wave, CB Pay, AYA Pay), and get invited to private Telegram groups. Everything in Burmese language.
 
 ## Features
 
-- **Career Pathways** - Courses organized by career roadmaps with icons, colors, and sorting
-- **Course Management** - Modules, lessons with video/file support, progress tracking
-- **Myanmar Payment Workflow** - Manual payment via KBZPay, WavePay, CB Pay with screenshot upload and admin approval
-- **Telegram Bot Integration** - Webhook-based bot for notifications and commands
-- **Admin Dashboard** - Full CRUD for content, payment management with screenshot preview
-- **User Features** - Bookmarks, search, reviews, progress tracking, payment history
+### 📱 Telegram Mini App (User-facing)
+- Career Roadmaps — Browse career paths with icons and descriptions
+- Courses — View courses within each roadmap, with pricing in MMK
+- Course Detail — Modules, lessons, content (text, video, files)
+- Payment Flow — Choose payment method → see QR code + account info → upload screenshot
+- Payment Status — Track pending/approved/rejected payments
+- Join Group — After approval, one-click join to private group (one-time invite link)
+- Progress Tracking — Mark lessons as complete, see progress bar
+- Quiz System — Multiple choice quizzes per lesson with scoring
+- Certificates — Auto-generated completion certificates
+- Discussions — Per-course discussion threads
+- Bookmarks — Save courses for later
+- Reviews — Rate and review courses
+- Announcements — Course-specific news/updates
+- All in **Burmese language**
+
+### 🤖 Telegram Bot
+- `/start` — Opens the Mini App with a button
+- `/courses` — Shows user's enrolled courses
+- `/help` — Help message in Burmese
+- `/setadmin` — Admin command to set notification channel
+- Payment approval → sends "✅ Approved! Join now" with button
+- Payment rejection → sends reason and "🔄 Try again" button
+- One-time invite link generation (member_limit: 1, 24-hour expiry)
+
+### 🖥️ Admin Dashboard
+- Dashboard — Revenue (MMK), enrollment count, pending payments, user count
+- Payments — View screenshots, approve/reject with notes, bulk approve
+- Payment Methods — CRUD (add KBZ Pay, Wave, etc.), upload QR codes
+- Roadmaps — CRUD career roadmaps with icons and colors
+- Courses — CRUD courses with pricing in MMK, link Telegram groups
+- Modules & Lessons — Full course content management
+- Announcements — Post course-specific or global announcements
+- Users — View all registered Telegram users
+- Analytics — Monthly revenue charts, course revenue, enrollment trends
+- CSV Export — Export users, payments, courses data
+- All labels in **Burmese**
 
 ## Tech Stack
 
-- **Frontend**: Vanilla HTML/JS + Tailwind CSS (Telegram Mini App)
-- **Backend**: Express.js as Vercel Serverless Function
+- **Frontend**: Vanilla JS + Tailwind CSS (no build step)
+- **Backend**: Express.js (Vercel Serverless)
 - **Database**: Supabase (PostgreSQL)
-- **Storage**: Supabase Storage (payment screenshots, QR codes)
+- **Storage**: Supabase Storage (screenshots, QR codes)
 - **Bot**: Telegram Bot API (webhook mode)
-- **Deployment**: Vercel
+- **Font**: Noto Sans Myanmar
 
-## Project Structure
-
-```
-telelms/
-├── api/
-│   └── index.js           # Express API (Vercel serverless function)
-├── lib/
-│   ├── supabase.js        # Supabase client
-│   └── bot.js             # Telegram bot (webhook mode)
-├── public/
-│   ├── index.html         # Telegram Mini App UI
-│   ├── app.js             # Mini App frontend logic
-│   ├── admin.html         # Admin dashboard
-│   └── admin.js           # Admin logic
-├── supabase/
-│   └── schema.sql         # Database schema
-├── vercel.json            # Vercel config
-├── .env.example           # Environment variables template
-└── package.json
-```
-
-## Setup & Deployment
+## Deployment Guide
 
 ### 1. Supabase Setup
-
-1. Create a project at [supabase.com](https://supabase.com)
-2. Go to SQL Editor and run `supabase/schema.sql`
-3. Create a Storage bucket named `uploads` with public access:
-   - Go to Storage → New Bucket → Name: `uploads` → Public bucket: ON
-4. Copy your project URL and keys from Settings → API
+1. Create a new project at [supabase.com](https://supabase.com)
+2. Go to SQL Editor → run `supabase/schema.sql`
+3. Go to Storage → create a bucket named `uploads` with public access
 
 ### 2. Telegram Bot Setup
-
 1. Create a bot via [@BotFather](https://t.me/BotFather)
-2. Set the bot's menu button to your web app URL
-3. Copy the bot token
+2. Set the bot's Menu Button URL to your deployed app URL
+3. If using groups, make the bot an admin in each private group
 
-### 3. Deploy to Vercel
+### 3. Vercel Deployment
+1. Import this repo on [vercel.com](https://vercel.com)
+2. Set environment variables:
 
-1. Push this repo to GitHub
-2. Import in [Vercel](https://vercel.com)
-3. Set environment variables:
-
-| Variable | Description |
-|----------|-------------|
-| `SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_ANON_KEY` | Supabase anonymous key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
-| `BOT_TOKEN` | Telegram bot token |
-| `WEB_APP_URL` | Deployed Vercel URL |
-| `ADMIN_PASSWORD` | Admin dashboard password |
-| `BOT_OWNER_ID` | Your Telegram user ID |
-| `ADMIN_CHANNEL_ID` | Telegram channel ID for admin notifications |
-
-4. Deploy!
-
-### 4. Register Bot Webhook
-
-After deployment, visit:
 ```
-https://your-app.vercel.app/api/bot/setup
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+BOT_TOKEN=your-telegram-bot-token
+WEB_APP_URL=https://your-vercel-app.vercel.app
+ADMIN_PASSWORD=your-admin-password
+ADMIN_CHANNEL_ID=your-telegram-channel-id (optional)
+BOT_OWNER_ID=your-telegram-user-id (optional)
 ```
 
-This registers the webhook URL with Telegram.
+3. Deploy! Then visit `https://your-app.vercel.app/api/bot/setup` to register the webhook.
 
-## Admin Dashboard
+### 4. Access
+- **Mini App**: Open the Telegram bot → click the button
+- **Admin Dashboard**: Visit `https://your-app.vercel.app/admin.html`
 
-Access at: `https://your-app.vercel.app/admin.html`
+## Currency
+All prices are in **MMK (Myanmar Kyat)** with no decimals.
 
-Login with your `ADMIN_PASSWORD` to manage:
-- Roadmaps (career pathways)
-- Courses with difficulty levels and pricing
-- Modules and lessons
-- Payment methods (KBZPay, WavePay, etc.)
-- Payment approval/rejection with notes
-- Announcements
-- Users
-
-## Bot Commands
-
-- `/start` - Welcome message with Mini App button
-- `/courses` - List enrolled courses
-- `/help` - Help information
-- `/setadmin` - Set current chat as admin notification channel
-
-## Payment Flow
-
-1. Student selects a course and clicks "Buy"
-2. Selects payment method (KBZPay, WavePay, etc.)
-3. Views account details and QR code
-4. Makes payment and uploads screenshot
-5. Admin receives notification and reviews payment
-6. Admin approves/rejects with optional note
-7. Student gets Telegram notification with course access
-
-## Local Development
-
-```bash
-cp .env.example .env
-# Fill in your environment variables
-npm install
-npm run dev
-```
-
-## Future Improvements
-
-- Quiz/assessment system
-- Course completion certificates
-- Multi-language support (English + Myanmar)
-- Analytics dashboard
-- Discussion forum per course
-- Bulk payment operations
-- CSV data export
+## License
+MIT

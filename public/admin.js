@@ -1,478 +1,550 @@
-/* TeleLMS Admin Dashboard */
-let adminToken = '';
-let roadmapsData = [];
-let coursesData = [];
+// လမ်းစ (Lann Sa) LMS - Admin Dashboard Logic
+const API = '/api';
+let adminPassword = '';
+let pendingCount = 0;
+let allPayments = [];
 
-function escHtml(s) {
-  const d = document.createElement('div');
-  d.textContent = s || '';
-  return d.innerHTML;
+function adminHeaders(json = true) {
+  const h = { 'X-Admin-Password': adminPassword };
+  if (json) h['Content-Type'] = 'application/json';
+  return h;
 }
 
-function apiCall(endpoint, opts = {}) {
-  if (!opts.headers) opts.headers = {};
-  opts.headers['x-admin-password'] = adminToken;
-  if (opts.body && !(opts.body instanceof FormData)) {
-    opts.headers['Content-Type'] = 'application/json';
-    if (typeof opts.body === 'object') opts.body = JSON.stringify(opts.body);
-  }
-  return fetch('/api' + endpoint, opts).then(r => r.json()).catch(() => null);
+async function adminApi(path, opts = {}) {
+  const res = await fetch(API + path, { headers: adminHeaders(opts.json !== false), ...opts });
+  if (!res.ok) throw new Error(await res.text());
+  const ct = res.headers.get('content-type');
+  if (ct && ct.includes('text/csv')) return res.blob();
+  return res.json();
 }
 
-function formatMMK(n) { return new Intl.NumberFormat('en-US').format(n) + ' MMK'; }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 3000);
+}
 
-// --- Auth ---
-async function login() {
-  adminToken = document.getElementById('adminPassword').value;
-  const res = await apiCall('/admin/stats');
-  if (res && res.totalUsers !== undefined) {
-    document.getElementById('loginPage').classList.add('hidden');
+function formatMMK(n) { return Number(n || 0).toLocaleString() + ' MMK'; }
+
+function statusBadge(s) {
+  const m = { pending: ['badge-yellow', 'စိစစ်ဆဲ'], approved: ['badge-green', 'အတည်ပြုပြီး'], rejected: ['badge-red', 'ပယ်ချပြီး'] };
+  const [cls, label] = m[s] || ['', s];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+// --- LOGIN ---
+async function doLogin() {
+  const pwd = document.getElementById('login-password').value;
+  try {
+    const res = await fetch(API + '/admin/stats', { headers: { 'X-Admin-Password': pwd } });
+    if (!res.ok) { document.getElementById('login-error').classList.remove('hidden'); return; }
+    adminPassword = pwd;
+    document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('dashboard').classList.remove('hidden');
-    loadAll();
-  } else {
-    document.getElementById('loginError').classList.remove('hidden');
-  }
+    loadStats();
+  } catch (e) { document.getElementById('login-error').classList.remove('hidden'); }
 }
 
-function logout() {
-  adminToken = '';
-  document.getElementById('dashboard').classList.add('hidden');
-  document.getElementById('loginPage').classList.remove('hidden');
-  document.getElementById('adminPassword').value = '';
+// --- NAVIGATION ---
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+  document.getElementById('page-' + page)?.classList.remove('hidden');
+  document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+  document.getElementById('sidebar').classList.remove('open');
+
+  if (page === 'stats') loadStats();
+  else if (page === 'payments') loadPayments();
+  else if (page === 'payment-methods') loadPaymentMethods();
+  else if (page === 'roadmaps') loadRoadmaps();
+  else if (page === 'courses') loadCourses();
+  else if (page === 'content') loadContentPage();
+  else if (page === 'announcements') loadAnnouncements();
+  else if (page === 'users') loadUsers();
+  else if (page === 'analytics') loadAnalytics();
 }
 
-// --- Navigation ---
-function showSection(id) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.getElementById('section-' + id).classList.add('active');
-  document.querySelectorAll('.nav-link').forEach(l => {
-    l.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
-    if (l.dataset.section === id) l.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
-  });
+function closeModal() { document.getElementById('modal-container').innerHTML = ''; }
 
-  if (id === 'overview') loadStats();
-  else if (id === 'roadmaps') loadRoadmaps();
-  else if (id === 'courses') loadCourses();
-  else if (id === 'content') { loadContentCourseFilter(); loadContent(); }
-  else if (id === 'payments') loadPayments();
-  else if (id === 'paymentMethods') loadPaymentMethods();
-  else if (id === 'announcements') loadAnnouncements();
-  else if (id === 'users') loadUsers();
-}
-
-// --- Modal ---
-function openModal(title, bodyHtml) {
-  document.getElementById('modalTitle').textContent = title;
-  document.getElementById('modalBody').innerHTML = bodyHtml;
-  document.getElementById('modal').classList.remove('hidden');
-}
-
-function closeModal() { document.getElementById('modal').classList.add('hidden'); }
-
-function showScreenshotModal(url) {
-  document.getElementById('screenshotImg').src = url;
-  document.getElementById('screenshotModal').classList.remove('hidden');
-}
-
-function closeScreenshotModal() { document.getElementById('screenshotModal').classList.add('hidden'); }
-
-// --- Load All ---
-function loadAll() {
-  loadStats();
-  loadRoadmaps();
-  loadCourses();
-}
-
-// --- Stats ---
+// --- STATS ---
 async function loadStats() {
-  const stats = await apiCall('/admin/stats');
-  if (!stats) return;
-  document.getElementById('statUsers').textContent = stats.totalUsers;
-  document.getElementById('statCourses').textContent = stats.totalCourses;
-  document.getElementById('statPending').textContent = stats.pendingPayments;
-  document.getElementById('statPayments').textContent = stats.totalPayments;
+  const stats = await adminApi('/admin/stats');
+  pendingCount = stats.pendingPayments;
+  const badge = document.getElementById('pending-badge');
+  if (pendingCount > 0) { badge.classList.remove('hidden'); badge.textContent = pendingCount; }
+  else badge.classList.add('hidden');
 
-  const payments = await apiCall('/admin/payments?status=pending');
-  const el = document.getElementById('recentPayments');
-  if (!payments || payments.length === 0) {
-    el.innerHTML = '<p class="text-gray-500 text-sm">No pending payments</p>';
-    return;
-  }
-  el.innerHTML = payments.slice(0, 5).map(p => `
-    <div class="flex items-center justify-between py-2 border-b last:border-0">
-      <div>
-        <span class="font-medium text-sm">${escHtml(p.first_name)}</span>
-        <span class="text-gray-500 text-xs ml-2">${escHtml(p.course_title)}</span>
-      </div>
-      <div class="flex gap-2">
-        <button onclick="showPaymentDetail(${p.id})" class="text-xs text-blue-600 hover:underline">View</button>
-      </div>
-    </div>`).join('');
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card"><p class="text-xs text-gray-500 mb-1">💰 စုစုပေါင်း ဝင်ငွေ</p><p class="text-2xl font-bold" style="color:#6366f1">${formatMMK(stats.totalRevenue)}</p></div>
+    <div class="stat-card"><p class="text-xs text-gray-500 mb-1">👥 အသုံးပြုသူ</p><p class="text-2xl font-bold">${stats.totalUsers}</p></div>
+    <div class="stat-card"><p class="text-xs text-gray-500 mb-1">📖 သင်တန်း</p><p class="text-2xl font-bold">${stats.totalCourses}</p></div>
+    <div class="stat-card"><p class="text-xs text-gray-500 mb-1">⏳ စိစစ်ရန်</p><p class="text-2xl font-bold" style="color:#f59e0b">${stats.pendingPayments}</p></div>
+    <div class="stat-card"><p class="text-xs text-gray-500 mb-1">📝 စာရင်းသွင်းပြီး</p><p class="text-2xl font-bold" style="color:#22c55e">${stats.approvedEnrollments}</p></div>
+    <div class="stat-card"><p class="text-xs text-gray-500 mb-1">💳 ငွေပေးချေမှု စုစုပေါင်း</p><p class="text-2xl font-bold">${stats.totalPayments}</p></div>
+  `;
 }
 
-// --- Roadmaps ---
-async function loadRoadmaps() {
-  const data = await apiCall('/roadmaps');
-  roadmapsData = data || [];
-  const grid = document.getElementById('roadmapsGrid');
-  grid.innerHTML = roadmapsData.map(r => `
-    <div class="bg-white rounded-xl p-4 shadow-sm border flex items-center gap-3">
-      <span class="text-2xl">${r.icon || '📚'}</span>
-      <div class="flex-1">
-        <div class="font-bold">${escHtml(r.title)}</div>
-        <div class="text-gray-500 text-xs">${escHtml(r.description || '')}</div>
-        <div class="text-gray-400 text-xs mt-1">Order: ${r.order_index || 0} | Color: <span style="color:${r.color}">${r.color}</span></div>
-      </div>
-      <button onclick="deleteRoadmap(${r.id})" class="text-red-500 text-sm hover:underline">Delete</button>
-    </div>`).join('');
-}
+// --- PAYMENTS ---
+async function loadPayments(status) {
+  const url = status ? `/admin/payments?status=${status}` : '/admin/payments';
+  allPayments = await adminApi(url);
+  const pendingPayments = allPayments.filter(p => p.status === 'pending');
+  const bulkBtn = document.getElementById('bulk-approve-btn');
+  bulkBtn.style.display = pendingPayments.length > 1 ? 'inline-block' : 'none';
 
-function showRoadmapForm() {
-  openModal('Add Roadmap', `
-    <div class="space-y-3">
-      <input id="rmTitle" placeholder="Title" class="w-full p-2 border rounded-lg">
-      <textarea id="rmDesc" placeholder="Description" class="w-full p-2 border rounded-lg" rows="2"></textarea>
-      <div class="grid grid-cols-3 gap-2">
-        <input id="rmIcon" placeholder="Icon (emoji)" class="p-2 border rounded-lg" value="📚">
-        <input id="rmColor" placeholder="Color" class="p-2 border rounded-lg" value="#3390ec" type="color">
-        <input id="rmOrder" placeholder="Order" class="p-2 border rounded-lg" type="number" value="0">
-      </div>
-      <button onclick="saveRoadmap()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium">Save</button>
-    </div>`);
-}
-
-async function saveRoadmap() {
-  await apiCall('/admin/roadmaps', { method: 'POST', body: {
-    title: document.getElementById('rmTitle').value,
-    description: document.getElementById('rmDesc').value,
-    icon: document.getElementById('rmIcon').value,
-    color: document.getElementById('rmColor').value,
-    order_index: parseInt(document.getElementById('rmOrder').value) || 0,
-  }});
-  closeModal(); loadRoadmaps();
-}
-
-async function deleteRoadmap(id) {
-  if (!confirm('Delete this roadmap?')) return;
-  await apiCall(`/admin/roadmaps/${id}`, { method: 'DELETE' });
-  loadRoadmaps();
-}
-
-// --- Courses ---
-async function loadCourses() {
-  const data = await apiCall('/courses');
-  coursesData = data || [];
-  const grid = document.getElementById('coursesGrid');
-  grid.innerHTML = coursesData.map(c => `
-    <div class="bg-white rounded-xl p-4 shadow-sm border">
-      <div class="flex justify-between items-start">
-        <div>
-          <div class="font-bold">${escHtml(c.title)}</div>
-          <div class="text-gray-500 text-xs mt-1">${escHtml(c.description || '')}</div>
+  document.getElementById('payments-table').innerHTML = `<table>
+    <thead><tr><th>ID</th><th>အသုံးပြုသူ</th><th>သင်တန်း</th><th>ငွေပေးချေနည်း</th><th>အခြေအနေ</th><th>ရက်စွဲ</th><th>လုပ်ဆောင်ချက်</th></tr></thead>
+    <tbody>${allPayments.map(p => `<tr>
+      <td>#${p.id}</td>
+      <td><span class="font-medium">${p.first_name || ''}</span><br><span class="text-xs text-gray-400">@${p.username || p.telegram_id}</span></td>
+      <td>${p.course_title || ''}<br><span class="text-xs text-gray-400">${formatMMK(p.price_mmk)}</span></td>
+      <td>${p.payment_method_name || '-'}</td>
+      <td>${statusBadge(p.status)}</td>
+      <td class="text-xs">${new Date(p.created_at).toLocaleString()}</td>
+      <td>
+        <div class="flex gap-1">
+          <button class="btn btn-outline text-xs" onclick="viewPaymentScreenshot('${p.screenshot_url}')">📸</button>
+          ${p.status === 'pending' ? `
+            <button class="btn btn-primary text-xs" onclick="approvePayment(${p.id})">✅</button>
+            <button class="btn btn-danger text-xs" onclick="rejectPayment(${p.id})">❌</button>
+          ` : ''}
         </div>
-        <button onclick="deleteCourse(${c.id})" class="text-red-500 text-sm hover:underline">Delete</button>
+      </td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+function viewPaymentScreenshot(url) {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-box" onclick="event.stopPropagation()" style="max-width:400px;">
+        <div class="flex justify-between items-center mb-4"><h3 class="font-bold">📸 ငွေလွှဲပြေစာ</h3><button onclick="closeModal()" class="text-xl">&times;</button></div>
+        <img src="${url}" class="w-full rounded-xl">
       </div>
-      <div class="flex items-center gap-2 mt-2 text-xs">
-        <span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">${c.difficulty || 'beginner'}</span>
-        <span class="font-bold text-green-600">${formatMMK(c.price_mmk)}</span>
-        ${c.duration_hours ? `<span class="text-gray-500">${c.duration_hours}h</span>` : ''}
-        <span class="text-gray-400">Roadmap: ${c.roadmap_id || 'None'}</span>
-      </div>
-    </div>`).join('');
-}
-
-function showCourseForm() {
-  const rmOptions = roadmapsData.map(r => `<option value="${r.id}">${escHtml(r.title)}</option>`).join('');
-  openModal('Add Course', `
-    <div class="space-y-3">
-      <input id="cTitle" placeholder="Title" class="w-full p-2 border rounded-lg">
-      <textarea id="cDesc" placeholder="Description" class="w-full p-2 border rounded-lg" rows="2"></textarea>
-      <select id="cRoadmap" class="w-full p-2 border rounded-lg"><option value="">Select Roadmap</option>${rmOptions}</select>
-      <div class="grid grid-cols-2 gap-2">
-        <input id="cPrice" placeholder="Price (MMK)" class="p-2 border rounded-lg" type="number" value="0">
-        <select id="cDifficulty" class="p-2 border rounded-lg">
-          <option value="beginner">Beginner</option>
-          <option value="intermediate">Intermediate</option>
-          <option value="advanced">Advanced</option>
-        </select>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <input id="cDuration" placeholder="Duration (hours)" class="p-2 border rounded-lg" type="number">
-        <input id="cOrder" placeholder="Order" class="p-2 border rounded-lg" type="number" value="0">
-      </div>
-      <input id="cGroupId" placeholder="Telegram Group ID (optional)" class="w-full p-2 border rounded-lg">
-      <button onclick="saveCourse()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium">Save</button>
-    </div>`);
-}
-
-async function saveCourse() {
-  await apiCall('/admin/courses', { method: 'POST', body: {
-    title: document.getElementById('cTitle').value,
-    description: document.getElementById('cDesc').value,
-    roadmap_id: document.getElementById('cRoadmap').value || null,
-    price_mmk: parseInt(document.getElementById('cPrice').value) || 0,
-    difficulty: document.getElementById('cDifficulty').value,
-    duration_hours: parseInt(document.getElementById('cDuration').value) || null,
-    order_index: parseInt(document.getElementById('cOrder').value) || 0,
-    telegram_group_id: document.getElementById('cGroupId').value || null,
-  }});
-  closeModal(); loadCourses();
-}
-
-async function deleteCourse(id) {
-  if (!confirm('Delete this course and all its content?')) return;
-  await apiCall(`/admin/courses/${id}`, { method: 'DELETE' });
-  loadCourses();
-}
-
-// --- Content (Modules & Lessons) ---
-async function loadContentCourseFilter() {
-  if (coursesData.length === 0) {
-    const data = await apiCall('/courses');
-    coursesData = data || [];
-  }
-  const select = document.getElementById('contentCourseFilter');
-  select.innerHTML = '<option value="">Select Course</option>' +
-    coursesData.map(c => `<option value="${c.id}">${escHtml(c.title)}</option>`).join('');
-}
-
-async function loadContent() {
-  const courseId = document.getElementById('contentCourseFilter').value;
-  const list = document.getElementById('contentList');
-  if (!courseId) { list.innerHTML = '<p class="text-gray-500">Select a course to view content</p>'; return; }
-
-  const modules = await apiCall(`/courses/${courseId}/modules`);
-  list.innerHTML = (modules || []).map(m => `
-    <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-      <div class="px-4 py-3 bg-gray-50 flex justify-between items-center">
-        <span class="font-bold text-sm">${escHtml(m.title)} <span class="text-gray-400 text-xs">(order: ${m.order_index})</span></span>
-        <button onclick="deleteModule(${m.id})" class="text-red-500 text-xs hover:underline">Delete Module</button>
-      </div>
-      ${(m.lessons || []).map(l => `
-        <div class="px-4 py-2 border-t flex justify-between items-center">
-          <div>
-            <span class="text-sm">${escHtml(l.title)}</span>
-            <span class="text-gray-400 text-xs ml-2">(order: ${l.order_index})</span>
-            ${l.video_url ? '<span class="text-xs text-blue-500 ml-1">🎥</span>' : ''}
-            ${l.file_url ? '<span class="text-xs text-green-500 ml-1">📎</span>' : ''}
-          </div>
-          <button onclick="deleteLesson(${l.id})" class="text-red-500 text-xs hover:underline">Delete</button>
-        </div>`).join('')}
-    </div>`).join('');
-}
-
-function showModuleForm() {
-  const courseId = document.getElementById('contentCourseFilter').value;
-  openModal('Add Module', `
-    <div class="space-y-3">
-      <input id="modTitle" placeholder="Module Title" class="w-full p-2 border rounded-lg">
-      <input id="modOrder" placeholder="Order Index" class="w-full p-2 border rounded-lg" type="number" value="0">
-      <input id="modCourseId" type="hidden" value="${courseId}">
-      <button onclick="saveModule()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium">Save</button>
-    </div>`);
-}
-
-async function saveModule() {
-  await apiCall('/admin/modules', { method: 'POST', body: {
-    course_id: document.getElementById('modCourseId').value,
-    title: document.getElementById('modTitle').value,
-    order_index: parseInt(document.getElementById('modOrder').value) || 0,
-  }});
-  closeModal(); loadContent();
-}
-
-async function deleteModule(id) {
-  if (!confirm('Delete this module and all its lessons?')) return;
-  await apiCall(`/admin/modules/${id}`, { method: 'DELETE' });
-  loadContent();
-}
-
-function showLessonForm() {
-  openModal('Add Lesson', `
-    <div class="space-y-3">
-      <input id="lesModuleId" placeholder="Module ID" class="w-full p-2 border rounded-lg" type="number">
-      <input id="lesTitle" placeholder="Lesson Title" class="w-full p-2 border rounded-lg">
-      <textarea id="lesContent" placeholder="Content (text)" class="w-full p-2 border rounded-lg" rows="3"></textarea>
-      <input id="lesVideo" placeholder="Video URL (YouTube, etc.)" class="w-full p-2 border rounded-lg">
-      <input id="lesFile" placeholder="File URL" class="w-full p-2 border rounded-lg">
-      <input id="lesOrder" placeholder="Order Index" class="w-full p-2 border rounded-lg" type="number" value="0">
-      <button onclick="saveLesson()" class="w-full bg-green-600 text-white py-2 rounded-lg font-medium">Save</button>
-    </div>`);
-}
-
-async function saveLesson() {
-  await apiCall('/admin/lessons', { method: 'POST', body: {
-    module_id: document.getElementById('lesModuleId').value,
-    title: document.getElementById('lesTitle').value,
-    content: document.getElementById('lesContent').value,
-    video_url: document.getElementById('lesVideo').value || null,
-    file_url: document.getElementById('lesFile').value || null,
-    order_index: parseInt(document.getElementById('lesOrder').value) || 0,
-  }});
-  closeModal(); loadContent();
-}
-
-async function deleteLesson(id) {
-  if (!confirm('Delete this lesson?')) return;
-  await apiCall(`/admin/lessons/${id}`, { method: 'DELETE' });
-  loadContent();
-}
-
-// --- Payments ---
-async function loadPayments() {
-  const status = document.getElementById('paymentStatusFilter').value;
-  const data = await apiCall(`/admin/payments${status ? '?status=' + status : ''}`);
-  const list = document.getElementById('paymentsList');
-  if (!data || data.length === 0) {
-    list.innerHTML = '<p class="text-gray-500">No payments found</p>';
-    return;
-  }
-  list.innerHTML = data.map(p => `
-    <div class="bg-white rounded-xl p-4 shadow-sm border">
-      <div class="flex justify-between items-start">
-        <div>
-          <div class="font-bold text-sm">${escHtml(p.first_name)} ${p.username ? `(@${escHtml(p.username)})` : ''}</div>
-          <div class="text-gray-500 text-xs mt-1">Course: ${escHtml(p.course_title)} | Via: ${escHtml(p.payment_method_name)}</div>
-          <div class="text-gray-400 text-xs mt-1">${new Date(p.created_at).toLocaleString()}</div>
-          ${p.admin_note ? `<div class="text-xs mt-1 text-gray-600">Note: ${escHtml(p.admin_note)}</div>` : ''}
-        </div>
-        <span class="text-xs px-2 py-1 rounded-full status-${p.status}">${p.status}</span>
-      </div>
-      <div class="flex gap-2 mt-3">
-        <button onclick="showScreenshotModal('${p.screenshot_url}')" class="text-xs text-blue-600 hover:underline">View Screenshot</button>
-        ${p.status === 'pending' ? `
-          <button onclick="approvePayment(${p.id})" class="text-xs bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700">Approve</button>
-          <button onclick="rejectPayment(${p.id})" class="text-xs bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700">Reject</button>
-        ` : ''}
-      </div>
-    </div>`).join('');
-}
-
-function showPaymentDetail(paymentId) {
-  showSection('payments');
-  document.getElementById('paymentStatusFilter').value = 'pending';
-  loadPayments();
+    </div>`;
 }
 
 async function approvePayment(id) {
-  const note = prompt('Admin note (optional):') || '';
-  await apiCall(`/admin/payments/${id}/approve`, { method: 'POST', body: { note } });
-  loadPayments();
+  const note = prompt('မှတ်ချက် (ချန်ထားနိုင်ပါသည်):') || '';
+  await adminApi(`/admin/payments/${id}/approve`, { method: 'POST', body: JSON.stringify({ note }) });
+  showToast('အတည်ပြုပြီးပါပြီ');
+  loadPayments(document.getElementById('payment-filter').value);
   loadStats();
 }
 
 async function rejectPayment(id) {
-  const note = prompt('Rejection reason:') || '';
-  await apiCall(`/admin/payments/${id}/reject`, { method: 'POST', body: { note } });
-  loadPayments();
+  const note = prompt('ပယ်ချရသည့် အကြောင်းပြချက်:');
+  if (note === null) return;
+  await adminApi(`/admin/payments/${id}/reject`, { method: 'POST', body: JSON.stringify({ note }) });
+  showToast('ပယ်ချပြီးပါပြီ');
+  loadPayments(document.getElementById('payment-filter').value);
   loadStats();
 }
 
-// --- Payment Methods ---
+async function bulkApprove() {
+  const pendingIds = allPayments.filter(p => p.status === 'pending').map(p => p.id);
+  if (!pendingIds.length) return;
+  if (!confirm(`စိစစ်ဆဲ ${pendingIds.length} ခု အားလုံးကို အတည်ပြုမှာ သေချာပါသလား?`)) return;
+  const note = prompt('မှတ်ချက် (ချန်ထားနိုင်ပါသည်):') || '';
+  await adminApi('/admin/payments/bulk-approve', { method: 'POST', body: JSON.stringify({ ids: pendingIds, note }) });
+  showToast(`${pendingIds.length} ခု အတည်ပြုပြီးပါပြီ`);
+  loadPayments(); loadStats();
+}
+
+// --- PAYMENT METHODS ---
 async function loadPaymentMethods() {
-  const data = await apiCall('/payment-methods');
-  const grid = document.getElementById('paymentMethodsGrid');
-  grid.innerHTML = (data || []).map(pm => `
-    <div class="bg-white rounded-xl p-4 shadow-sm border">
-      <div class="flex justify-between items-start">
-        <div>
-          <div class="font-bold">${escHtml(pm.name)}</div>
-          ${pm.account_name ? `<div class="text-sm text-gray-600 mt-1">Name: ${escHtml(pm.account_name)}</div>` : ''}
-          ${pm.account_number ? `<div class="text-sm text-gray-600">Account: ${escHtml(pm.account_number)}</div>` : ''}
-          ${pm.instructions ? `<div class="text-xs text-gray-500 mt-1">${escHtml(pm.instructions)}</div>` : ''}
+  const methods = await adminApi('/payment-methods');
+  document.getElementById('payment-methods-grid').innerHTML = methods.length > 0
+    ? methods.map(m => `
+      <div class="stat-card">
+        <div class="flex items-start justify-between mb-3">
+          <h3 class="font-bold text-base">${m.name}</h3>
+          <button class="btn btn-danger text-xs" onclick="deletePaymentMethod(${m.id})">🗑</button>
         </div>
-        <button onclick="deletePaymentMethod(${pm.id})" class="text-red-500 text-sm hover:underline">Delete</button>
-      </div>
-      ${pm.qr_image_url ? `<img src="${pm.qr_image_url}" class="mt-2 max-w-[150px] rounded-lg cursor-pointer" onclick="showScreenshotModal('${pm.qr_image_url}')">` : ''}
-    </div>`).join('');
+        ${m.qr_image_url ? `<img src="${m.qr_image_url}" class="w-32 mx-auto rounded-xl mb-3">` : ''}
+        ${m.account_name ? `<p class="text-sm"><span class="text-gray-500">အမည်:</span> ${m.account_name}</p>` : ''}
+        ${m.account_number ? `<p class="text-sm"><span class="text-gray-500">နံပါတ်:</span> ${m.account_number}</p>` : ''}
+        ${m.instructions ? `<p class="text-xs text-gray-500 mt-2">${m.instructions}</p>` : ''}
+      </div>`).join('')
+    : '<p class="text-gray-400 col-span-3 text-center py-8">ငွေပေးချေနည်း မထည့်ရသေးပါ</p>';
 }
 
-function showPaymentMethodForm() {
-  openModal('Add Payment Method', `
-    <form id="pmForm" class="space-y-3">
-      <input id="pmName" placeholder="Name (e.g. KBZPay, WavePay)" class="w-full p-2 border rounded-lg" required>
-      <input id="pmAccName" placeholder="Account Name" class="w-full p-2 border rounded-lg">
-      <input id="pmAccNum" placeholder="Account Number" class="w-full p-2 border rounded-lg">
-      <textarea id="pmInstr" placeholder="Instructions" class="w-full p-2 border rounded-lg" rows="2"></textarea>
-      <div>
-        <label class="text-sm text-gray-600">QR Code Image (optional)</label>
-        <input id="pmQrFile" type="file" accept="image/*" class="w-full p-2 border rounded-lg mt-1">
+function showPaymentMethodModal() {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="flex justify-between items-center mb-5"><h3 class="font-bold text-lg">🏦 ငွေပေးချေနည်း ထည့်ရန်</h3><button onclick="closeModal()" class="text-xl">&times;</button></div>
+        <form id="pm-form" onsubmit="submitPaymentMethod(event)">
+          <div class="mb-3"><label class="form-label">အမည် (ဥပမာ: KBZ Pay)</label><input class="form-input" name="name" required></div>
+          <div class="mb-3"><label class="form-label">အကောင့် အမည်</label><input class="form-input" name="account_name"></div>
+          <div class="mb-3"><label class="form-label">အကောင့် နံပါတ်</label><input class="form-input" name="account_number"></div>
+          <div class="mb-3"><label class="form-label">QR ပုံ</label><input type="file" name="qr_image" accept="image/*" class="form-input" style="padding:8px;"></div>
+          <div class="mb-4"><label class="form-label">လမ်းညွှန်ချက်</label><textarea class="form-input" name="instructions" rows="2"></textarea></div>
+          <button type="submit" class="btn btn-primary w-full">သိမ်းဆည်းရန်</button>
+        </form>
       </div>
-      <button type="button" onclick="savePaymentMethod()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium">Save</button>
-    </form>`);
+    </div>`;
 }
 
-async function savePaymentMethod() {
-  const fd = new FormData();
-  fd.append('name', document.getElementById('pmName').value);
-  fd.append('account_name', document.getElementById('pmAccName').value);
-  fd.append('account_number', document.getElementById('pmAccNum').value);
-  fd.append('instructions', document.getElementById('pmInstr').value);
-  const qrFile = document.getElementById('pmQrFile').files[0];
-  if (qrFile) fd.append('qr_image', qrFile);
-
-  await fetch('/api/admin/payment-methods', {
-    method: 'POST',
-    headers: { 'x-admin-password': adminToken },
-    body: fd,
-  });
-  closeModal(); loadPaymentMethods();
+async function submitPaymentMethod(e) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  await fetch(API + '/admin/payment-methods', { method: 'POST', headers: { 'X-Admin-Password': adminPassword }, body: fd });
+  closeModal(); showToast('ထည့်သွင်းပြီးပါပြီ'); loadPaymentMethods();
 }
 
 async function deletePaymentMethod(id) {
-  if (!confirm('Delete this payment method?')) return;
-  await apiCall(`/admin/payment-methods/${id}`, { method: 'DELETE' });
-  loadPaymentMethods();
+  if (!confirm('ဖျက်မှာ သေချာပါသလား?')) return;
+  await adminApi(`/admin/payment-methods/${id}`, { method: 'DELETE' });
+  showToast('ဖျက်ပြီးပါပြီ'); loadPaymentMethods();
 }
 
-// --- Announcements ---
-async function loadAnnouncements() {
-  const data = await apiCall('/announcements');
-  const grid = document.getElementById('announcementsGrid');
-  grid.innerHTML = (data || []).map(a => `
-    <div class="bg-white rounded-xl p-4 shadow-sm border flex justify-between items-start">
-      <div>
-        <div class="font-bold text-sm">${escHtml(a.title)}</div>
-        <div class="text-gray-500 text-xs mt-1">${escHtml(a.content)}</div>
-        <div class="text-gray-400 text-xs mt-1">${new Date(a.created_at).toLocaleString()}</div>
+// --- ROADMAPS ---
+async function loadRoadmaps() {
+  const roadmaps = await adminApi('/roadmaps');
+  document.getElementById('roadmaps-grid').innerHTML = roadmaps.map(r => `
+    <div class="stat-card">
+      <div class="flex items-center gap-3 mb-2">
+        <span class="text-2xl">${r.icon}</span>
+        <div class="flex-1"><h3 class="font-bold">${r.title}</h3><p class="text-xs text-gray-500">${r.description || ''}</p></div>
+        <div class="flex gap-1">
+          <button class="btn btn-outline text-xs" onclick='showRoadmapModal(${JSON.stringify(r)})'>✏️</button>
+          <button class="btn btn-danger text-xs" onclick="deleteRoadmap(${r.id})">🗑</button>
+        </div>
       </div>
-      <button onclick="deleteAnnouncement(${a.id})" class="text-red-500 text-sm hover:underline">Delete</button>
+      <div class="flex items-center gap-2"><div class="w-4 h-4 rounded" style="background:${r.color}"></div><span class="text-xs text-gray-400">Order: ${r.order_index}</span></div>
     </div>`).join('');
 }
 
-function showAnnouncementForm() {
-  openModal('Add Announcement', `
-    <div class="space-y-3">
-      <input id="annTitle" placeholder="Title" class="w-full p-2 border rounded-lg">
-      <textarea id="annContent" placeholder="Content" class="w-full p-2 border rounded-lg" rows="3"></textarea>
-      <button onclick="saveAnnouncement()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-medium">Save</button>
-    </div>`);
+function showRoadmapModal(existing) {
+  const e = existing || {};
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="flex justify-between items-center mb-5"><h3 class="font-bold text-lg">${e.id ? '✏️ တည်းဖြတ်ရန်' : '🗺️ လမ်းကြောင်း ထည့်ရန်'}</h3><button onclick="closeModal()" class="text-xl">&times;</button></div>
+        <div class="space-y-3">
+          <div><label class="form-label">ခေါင်းစဉ်</label><input class="form-input" id="rm-title" value="${e.title || ''}"></div>
+          <div><label class="form-label">ဖော်ပြချက်</label><textarea class="form-input" id="rm-desc" rows="2">${e.description || ''}</textarea></div>
+          <div class="grid grid-cols-3 gap-3">
+            <div><label class="form-label">Icon</label><input class="form-input" id="rm-icon" value="${e.icon || '📚'}"></div>
+            <div><label class="form-label">အရောင်</label><input type="color" class="form-input" id="rm-color" value="${e.color || '#3390ec'}" style="padding:4px;height:42px;"></div>
+            <div><label class="form-label">အစဉ်</label><input type="number" class="form-input" id="rm-order" value="${e.order_index || 0}"></div>
+          </div>
+          <button class="btn btn-primary w-full" onclick="saveRoadmap(${e.id || 'null'})">${e.id ? 'ပြင်ဆင်ရန်' : 'သိမ်းဆည်းရန်'}</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function saveRoadmap(id) {
+  const data = { title: document.getElementById('rm-title').value, description: document.getElementById('rm-desc').value, icon: document.getElementById('rm-icon').value, color: document.getElementById('rm-color').value, order_index: parseInt(document.getElementById('rm-order').value) || 0 };
+  if (id) await adminApi(`/admin/roadmaps/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  else await adminApi('/admin/roadmaps', { method: 'POST', body: JSON.stringify(data) });
+  closeModal(); showToast('သိမ်းဆည်းပြီးပါပြီ'); loadRoadmaps();
+}
+
+async function deleteRoadmap(id) {
+  if (!confirm('ဖျက်မှာ သေချာပါသလား?')) return;
+  await adminApi(`/admin/roadmaps/${id}`, { method: 'DELETE' });
+  showToast('ဖျက်ပြီးပါပြီ'); loadRoadmaps();
+}
+
+// --- COURSES ---
+async function loadCourses() {
+  const [courses, roadmaps] = await Promise.all([adminApi('/courses'), adminApi('/roadmaps')]);
+  const rmMap = {}; roadmaps.forEach(r => rmMap[r.id] = r.title);
+  document.getElementById('courses-table').innerHTML = `<table>
+    <thead><tr><th>ID</th><th>ခေါင်းစဉ်</th><th>လမ်းကြောင်း</th><th>စျေးနှုန်း</th><th>အဆင့်</th><th>Group ID</th><th>လုပ်ဆောင်ချက်</th></tr></thead>
+    <tbody>${courses.map(c => `<tr>
+      <td>${c.id}</td>
+      <td class="font-medium">${c.title}</td>
+      <td class="text-xs">${rmMap[c.roadmap_id] || '-'}</td>
+      <td>${formatMMK(c.price_mmk)}</td>
+      <td class="text-xs">${c.difficulty}</td>
+      <td class="text-xs">${c.telegram_group_id || '<span class="text-gray-300">-</span>'}</td>
+      <td><div class="flex gap-1">
+        <button class="btn btn-outline text-xs" onclick='showCourseModal(${JSON.stringify(c)})'>✏️</button>
+        <button class="btn btn-danger text-xs" onclick="deleteCourse(${c.id})">🗑</button>
+      </div></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+async function showCourseModal(existing) {
+  const e = existing || {};
+  const roadmaps = await adminApi('/roadmaps');
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="flex justify-between items-center mb-5"><h3 class="font-bold text-lg">${e.id ? '✏️ သင်တန်း တည်းဖြတ်ရန်' : '📖 သင်တန်း ထည့်ရန်'}</h3><button onclick="closeModal()" class="text-xl">&times;</button></div>
+        <div class="space-y-3">
+          <div><label class="form-label">ခေါင်းစဉ်</label><input class="form-input" id="c-title" value="${e.title || ''}"></div>
+          <div><label class="form-label">ဖော်ပြချက်</label><textarea class="form-input" id="c-desc" rows="2">${e.description || ''}</textarea></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="form-label">စျေးနှုန်း (MMK)</label><input type="number" class="form-input" id="c-price" value="${e.price_mmk || 0}"></div>
+            <div><label class="form-label">လမ်းကြောင်း</label><select class="form-input" id="c-roadmap">
+              <option value="">ရွေးပါ</option>
+              ${roadmaps.map(r => `<option value="${r.id}" ${e.roadmap_id == r.id ? 'selected' : ''}>${r.title}</option>`).join('')}
+            </select></div>
+          </div>
+          <div class="grid grid-cols-3 gap-3">
+            <div><label class="form-label">အဆင့်</label><select class="form-input" id="c-difficulty">
+              <option value="beginner" ${e.difficulty === 'beginner' ? 'selected' : ''}>အခြေခံ</option>
+              <option value="intermediate" ${e.difficulty === 'intermediate' ? 'selected' : ''}>အလယ်တန်း</option>
+              <option value="advanced" ${e.difficulty === 'advanced' ? 'selected' : ''}>အဆင့်မြင့်</option>
+            </select></div>
+            <div><label class="form-label">ကြာချိန် (hr)</label><input type="number" class="form-input" id="c-duration" value="${e.duration_hours || ''}"></div>
+            <div><label class="form-label">အစဉ်</label><input type="number" class="form-input" id="c-order" value="${e.order_index || 0}"></div>
+          </div>
+          <div><label class="form-label">Telegram Group ID</label><input class="form-input" id="c-group" value="${e.telegram_group_id || ''}" placeholder="-100xxxxxxxxxx"></div>
+          <button class="btn btn-primary w-full" onclick="saveCourse(${e.id || 'null'})">${e.id ? 'ပြင်ဆင်ရန်' : 'သိမ်းဆည်းရန်'}</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function saveCourse(id) {
+  const data = {
+    title: document.getElementById('c-title').value,
+    description: document.getElementById('c-desc').value,
+    price_mmk: parseInt(document.getElementById('c-price').value) || 0,
+    roadmap_id: document.getElementById('c-roadmap').value || null,
+    difficulty: document.getElementById('c-difficulty').value,
+    duration_hours: document.getElementById('c-duration').value ? parseInt(document.getElementById('c-duration').value) : null,
+    order_index: parseInt(document.getElementById('c-order').value) || 0,
+    telegram_group_id: document.getElementById('c-group').value || null,
+  };
+  if (id) await adminApi(`/admin/courses/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  else await adminApi('/admin/courses', { method: 'POST', body: JSON.stringify(data) });
+  closeModal(); showToast('သိမ်းဆည်းပြီးပါပြီ'); loadCourses();
+}
+
+async function deleteCourse(id) {
+  if (!confirm('ဖျက်မှာ သေချာပါသလား?')) return;
+  await adminApi(`/admin/courses/${id}`, { method: 'DELETE' });
+  showToast('ဖျက်ပြီးပါပြီ'); loadCourses();
+}
+
+// --- CONTENT (Modules & Lessons) ---
+async function loadContentPage() {
+  const courses = await adminApi('/courses');
+  const sel = document.getElementById('content-course-select');
+  sel.innerHTML = '<option value="">သင်တန်း ရွေးပါ...</option>' + courses.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
+}
+
+async function loadCourseContent(courseId) {
+  if (!courseId) { document.getElementById('content-area').innerHTML = ''; return; }
+  const modules = await fetch(API + `/courses/${courseId}/modules`, { headers: adminHeaders() }).then(r => r.json());
+  let html = `<button class="btn btn-primary mb-4 text-sm" onclick="showModuleModal(${courseId})">+ Module ထည့်ရန်</button>`;
+  modules.forEach(m => {
+    html += `<div class="stat-card mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-sm">📁 ${m.title}</h3>
+        <div class="flex gap-1">
+          <button class="btn btn-primary text-xs" onclick="showLessonModal(${m.id})">+ Lesson</button>
+          <button class="btn btn-danger text-xs" onclick="deleteModule(${m.id}, ${courseId})">🗑</button>
+        </div>
+      </div>`;
+    if (m.lessons && m.lessons.length > 0) {
+      m.lessons.forEach(l => {
+        html += `<div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50">
+          <div><span class="text-sm">${l.title}</span>
+            <div class="flex gap-2 mt-1">${l.video_url ? '<span class="text-xs text-blue-500">🎬 Video</span>' : ''}${l.file_url ? '<span class="text-xs text-green-500">📎 File</span>' : ''}</div>
+          </div>
+          <div class="flex gap-1">
+            <button class="btn btn-outline text-xs" onclick='showLessonEditModal(${JSON.stringify(l)}, ${m.id})'>✏️</button>
+            <button class="btn btn-danger text-xs" onclick="deleteLesson(${l.id}, ${courseId})">🗑</button>
+          </div>
+        </div>`;
+      });
+    } else {
+      html += '<p class="text-xs text-gray-400 text-center py-3">သင်ခန်းစာ မရှိသေးပါ</p>';
+    }
+    html += '</div>';
+  });
+  if (modules.length === 0) html += '<p class="text-gray-400 text-center py-8">Module မရှိသေးပါ</p>';
+  document.getElementById('content-area').innerHTML = html;
+}
+
+function showModuleModal(courseId) {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="flex justify-between items-center mb-5"><h3 class="font-bold">📁 Module ထည့်ရန်</h3><button onclick="closeModal()" class="text-xl">&times;</button></div>
+        <div class="space-y-3">
+          <div><label class="form-label">ခေါင်းစဉ်</label><input class="form-input" id="mod-title"></div>
+          <div><label class="form-label">အစဉ်</label><input type="number" class="form-input" id="mod-order" value="0"></div>
+          <button class="btn btn-primary w-full" onclick="saveModule(${courseId})">သိမ်းဆည်းရန်</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function saveModule(courseId) {
+  await adminApi('/admin/modules', { method: 'POST', body: JSON.stringify({ course_id: courseId, title: document.getElementById('mod-title').value, order_index: parseInt(document.getElementById('mod-order').value) || 0 }) });
+  closeModal(); showToast('ထည့်သွင်းပြီးပါပြီ'); loadCourseContent(courseId);
+}
+
+async function deleteModule(id, courseId) {
+  if (!confirm('Module နှင့် lessons အားလုံး ဖျက်မှာ သေချာပါသလား?')) return;
+  await adminApi(`/admin/modules/${id}`, { method: 'DELETE' });
+  showToast('ဖျက်ပြီးပါပြီ'); loadCourseContent(courseId);
+}
+
+function showLessonModal(moduleId) {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="flex justify-between items-center mb-5"><h3 class="font-bold">📝 သင်ခန်းစာ ထည့်ရန်</h3><button onclick="closeModal()" class="text-xl">&times;</button></div>
+        <div class="space-y-3">
+          <div><label class="form-label">ခေါင်းစဉ်</label><input class="form-input" id="les-title"></div>
+          <div><label class="form-label">အကြောင်းအရာ</label><textarea class="form-input" id="les-content" rows="4"></textarea></div>
+          <div><label class="form-label">Video URL</label><input class="form-input" id="les-video" placeholder="YouTube link"></div>
+          <div><label class="form-label">File URL</label><input class="form-input" id="les-file" placeholder="ဖိုင် link"></div>
+          <div><label class="form-label">အစဉ်</label><input type="number" class="form-input" id="les-order" value="0"></div>
+          <button class="btn btn-primary w-full" onclick="saveLesson(${moduleId})">သိမ်းဆည်းရန်</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function showLessonEditModal(lesson, moduleId) {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="flex justify-between items-center mb-5"><h3 class="font-bold">✏️ သင်ခန်းစာ တည်းဖြတ်ရန်</h3><button onclick="closeModal()" class="text-xl">&times;</button></div>
+        <div class="space-y-3">
+          <div><label class="form-label">ခေါင်းစဉ်</label><input class="form-input" id="les-title" value="${lesson.title}"></div>
+          <div><label class="form-label">အကြောင်းအရာ</label><textarea class="form-input" id="les-content" rows="4">${lesson.content || ''}</textarea></div>
+          <div><label class="form-label">Video URL</label><input class="form-input" id="les-video" value="${lesson.video_url || ''}"></div>
+          <div><label class="form-label">File URL</label><input class="form-input" id="les-file" value="${lesson.file_url || ''}"></div>
+          <div><label class="form-label">အစဉ်</label><input type="number" class="form-input" id="les-order" value="${lesson.order_index || 0}"></div>
+          <button class="btn btn-primary w-full" onclick="updateLesson(${lesson.id})">ပြင်ဆင်ရန်</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function saveLesson(moduleId) {
+  const courseId = document.getElementById('content-course-select').value;
+  await adminApi('/admin/lessons', { method: 'POST', body: JSON.stringify({ module_id: moduleId, title: document.getElementById('les-title').value, content: document.getElementById('les-content').value, video_url: document.getElementById('les-video').value || null, file_url: document.getElementById('les-file').value || null, order_index: parseInt(document.getElementById('les-order').value) || 0 }) });
+  closeModal(); showToast('ထည့်သွင်းပြီးပါပြီ'); loadCourseContent(courseId);
+}
+
+async function updateLesson(id) {
+  const courseId = document.getElementById('content-course-select').value;
+  await adminApi(`/admin/lessons/${id}`, { method: 'PUT', body: JSON.stringify({ title: document.getElementById('les-title').value, content: document.getElementById('les-content').value, video_url: document.getElementById('les-video').value || null, file_url: document.getElementById('les-file').value || null, order_index: parseInt(document.getElementById('les-order').value) || 0 }) });
+  closeModal(); showToast('ပြင်ဆင်ပြီးပါပြီ'); loadCourseContent(courseId);
+}
+
+async function deleteLesson(id, courseId) {
+  if (!confirm('ဖျက်မှာ သေချာပါသလား?')) return;
+  await adminApi(`/admin/lessons/${id}`, { method: 'DELETE' });
+  showToast('ဖျက်ပြီးပါပြီ'); loadCourseContent(courseId);
+}
+
+// --- ANNOUNCEMENTS ---
+async function loadAnnouncements() {
+  const data = await adminApi('/announcements');
+  document.getElementById('announcements-list').innerHTML = data.length > 0
+    ? data.map(a => `<div class="stat-card">
+        <div class="flex items-start justify-between">
+          <div><h3 class="font-bold text-sm">${a.title}</h3><p class="text-xs text-gray-500 mt-1">${a.content}</p>
+            ${a.courses?.title ? `<span class="badge badge-blue text-xs mt-2">${a.courses.title}</span>` : '<span class="badge text-xs mt-2" style="background:#f1f5f9;color:#64748b;">Global</span>'}
+            <p class="text-xs text-gray-400 mt-1">${new Date(a.created_at).toLocaleString()}</p>
+          </div>
+          <button class="btn btn-danger text-xs" onclick="deleteAnnouncement(${a.id})">🗑</button>
+        </div>
+      </div>`).join('')
+    : '<p class="text-gray-400 text-center py-8">ကြေညာချက် မရှိသေးပါ</p>';
+}
+
+async function showAnnouncementModal() {
+  const courses = await adminApi('/courses');
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="flex justify-between items-center mb-5"><h3 class="font-bold">📢 ကြေညာချက် ထည့်ရန်</h3><button onclick="closeModal()" class="text-xl">&times;</button></div>
+        <div class="space-y-3">
+          <div><label class="form-label">ခေါင်းစဉ်</label><input class="form-input" id="ann-title"></div>
+          <div><label class="form-label">အကြောင်းအရာ</label><textarea class="form-input" id="ann-content" rows="3"></textarea></div>
+          <div><label class="form-label">သင်တန်း (ချန်ထားပါက Global)</label><select class="form-input" id="ann-course">
+            <option value="">Global - အားလုံး</option>
+            ${courses.map(c => `<option value="${c.id}">${c.title}</option>`).join('')}
+          </select></div>
+          <button class="btn btn-primary w-full" onclick="saveAnnouncement()">သိမ်းဆည်းရန်</button>
+        </div>
+      </div>
+    </div>`;
 }
 
 async function saveAnnouncement() {
-  await apiCall('/admin/announcements', { method: 'POST', body: {
-    title: document.getElementById('annTitle').value,
-    content: document.getElementById('annContent').value,
-  }});
-  closeModal(); loadAnnouncements();
+  await adminApi('/admin/announcements', { method: 'POST', body: JSON.stringify({ title: document.getElementById('ann-title').value, content: document.getElementById('ann-content').value, course_id: document.getElementById('ann-course').value || null }) });
+  closeModal(); showToast('ကြေညာချက် ထည့်ပြီးပါပြီ'); loadAnnouncements();
 }
 
 async function deleteAnnouncement(id) {
-  if (!confirm('Delete this announcement?')) return;
-  await apiCall(`/admin/announcements/${id}`, { method: 'DELETE' });
-  loadAnnouncements();
+  if (!confirm('ဖျက်မှာ သေချာပါသလား?')) return;
+  await adminApi(`/admin/announcements/${id}`, { method: 'DELETE' });
+  showToast('ဖျက်ပြီးပါပြီ'); loadAnnouncements();
 }
 
-// --- Users ---
+// --- USERS ---
 async function loadUsers() {
-  const data = await apiCall('/admin/users');
-  const tbody = document.getElementById('usersTableBody');
-  tbody.innerHTML = (data || []).map(u => `
-    <tr class="border-t">
-      <td class="px-4 py-2">${u.id}</td>
-      <td class="px-4 py-2 font-medium">${escHtml(u.first_name)} ${escHtml(u.last_name || '')}</td>
-      <td class="px-4 py-2">${u.username ? '@' + escHtml(u.username) : '-'}</td>
-      <td class="px-4 py-2 text-gray-500">${u.telegram_id}</td>
-      <td class="px-4 py-2 text-gray-500 text-xs">${new Date(u.created_at).toLocaleDateString()}</td>
-    </tr>`).join('');
+  const users = await adminApi('/admin/users');
+  document.getElementById('users-table').innerHTML = `<table>
+    <thead><tr><th>ID</th><th>Telegram ID</th><th>အမည်</th><th>Username</th><th>ပူးပေါင်းသည့်ရက်</th></tr></thead>
+    <tbody>${users.map(u => `<tr>
+      <td>${u.id}</td><td>${u.telegram_id}</td><td class="font-medium">${u.first_name || ''} ${u.last_name || ''}</td>
+      <td>@${u.username || '-'}</td><td class="text-xs">${new Date(u.created_at).toLocaleString()}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+// --- ANALYTICS ---
+async function loadAnalytics() {
+  const data = await adminApi('/admin/analytics');
+  const months = Object.keys(data.monthlyRevenue).sort();
+  const maxRev = Math.max(...Object.values(data.monthlyRevenue), 1);
+
+  let html = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="stat-card">
+      <h3 class="font-bold text-sm mb-4">💰 လစဉ် ဝင်ငွေ (MMK)</h3>
+      ${months.length > 0 ? `
+        <div class="chart-bar">${months.map(m => `<div class="flex flex-col items-center flex-1">
+          <div class="chart-bar-item w-full" style="height:${Math.max((data.monthlyRevenue[m] / maxRev) * 100, 4)}%;" title="${formatMMK(data.monthlyRevenue[m])}"></div>
+          <span class="text-xs text-gray-400 mt-1">${m.substring(5)}</span>
+        </div>`).join('')}</div>
+        <div class="mt-3 space-y-1">${months.map(m => `<div class="flex justify-between text-xs"><span class="text-gray-500">${m}</span><span class="font-bold">${formatMMK(data.monthlyRevenue[m])}</span></div>`).join('')}</div>
+      ` : '<p class="text-gray-400 text-center py-6">ဒေတာ မရှိသေးပါ</p>'}
+    </div>
+    <div class="stat-card">
+      <h3 class="font-bold text-sm mb-4">📖 သင်တန်းအလိုက် ဝင်ငွေ</h3>
+      ${Object.keys(data.courseRevenue).length > 0 ? `
+        <div class="space-y-2">${Object.entries(data.courseRevenue).sort((a, b) => b[1] - a[1]).map(([name, rev]) => `
+          <div class="flex items-center gap-3">
+            <span class="text-sm flex-1 truncate">${name}</span>
+            <span class="font-bold text-sm">${formatMMK(rev)}</span>
+          </div>`).join('')}</div>
+      ` : '<p class="text-gray-400 text-center py-6">ဒေတာ မရှိသေးပါ</p>'}
+    </div>
+    <div class="stat-card">
+      <h3 class="font-bold text-sm mb-4">📝 လစဉ် စာရင်းသွင်းမှု</h3>
+      ${months.length > 0 ? `<div class="space-y-1">${months.map(m => `<div class="flex justify-between text-xs"><span class="text-gray-500">${m}</span><span class="font-bold">${data.monthlyEnrollments[m] || 0} ခု</span></div>`).join('')}</div>` : '<p class="text-gray-400 text-center py-6">ဒေတာ မရှိသေးပါ</p>'}
+    </div>
+    <div class="stat-card">
+      <h3 class="font-bold text-sm mb-4">👥 လစဉ် အသုံးပြုသူ အသစ်</h3>
+      ${Object.keys(data.monthlyUsers).length > 0 ? `<div class="space-y-1">${Object.entries(data.monthlyUsers).sort().map(([m, cnt]) => `<div class="flex justify-between text-xs"><span class="text-gray-500">${m}</span><span class="font-bold">${cnt} ဦး</span></div>`).join('')}</div>` : '<p class="text-gray-400 text-center py-6">ဒေတာ မရှိသေးပါ</p>'}
+    </div>
+  </div>`;
+  document.getElementById('analytics-content').innerHTML = html;
+}
+
+// --- CSV EXPORT ---
+async function exportCSV(type) {
+  try {
+    const blob = await adminApi(`/admin/export/${type}`);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${type}_export.csv`; a.click();
+    URL.revokeObjectURL(url);
+    showToast('CSV ဒေါင်းလုဒ် လုပ်ပြီးပါပြီ');
+  } catch (e) { showToast('Export မအောင်မြင်ပါ'); }
 }

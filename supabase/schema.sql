@@ -1,4 +1,4 @@
--- TeleLMS Supabase Schema
+-- လမ်းစ (Lann Sa) LMS - Supabase Schema
 -- Run this in your Supabase SQL Editor to set up the database
 
 -- Roadmaps (Career Pathways)
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS lessons (
   order_index INTEGER DEFAULT 0
 );
 
--- Payment Methods (KBZPay, WavePay, CB Pay, etc.)
+-- Payment Methods (KBZPay, WavePay, CB Pay, AYA Pay, etc.)
 CREATE TABLE IF NOT EXISTS payment_methods (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -118,6 +118,59 @@ CREATE TABLE IF NOT EXISTS reviews (
   UNIQUE(user_id, course_id)
 );
 
+-- Quizzes
+CREATE TABLE IF NOT EXISTS quizzes (
+  id SERIAL PRIMARY KEY,
+  lesson_id INTEGER REFERENCES lessons(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  passing_score INTEGER DEFAULT 70,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Quiz Questions
+CREATE TABLE IF NOT EXISTS quiz_questions (
+  id SERIAL PRIMARY KEY,
+  quiz_id INTEGER REFERENCES quizzes(id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  option_a TEXT NOT NULL,
+  option_b TEXT NOT NULL,
+  option_c TEXT,
+  option_d TEXT,
+  correct_answer TEXT NOT NULL CHECK (correct_answer IN ('a', 'b', 'c', 'd')),
+  order_index INTEGER DEFAULT 0
+);
+
+-- Quiz Attempts
+CREATE TABLE IF NOT EXISTS quiz_attempts (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  quiz_id INTEGER REFERENCES quizzes(id) ON DELETE CASCADE,
+  score INTEGER NOT NULL,
+  total INTEGER NOT NULL,
+  passed BOOLEAN DEFAULT false,
+  answers JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Certificates
+CREATE TABLE IF NOT EXISTS certificates (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
+  certificate_number TEXT UNIQUE NOT NULL,
+  issued_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, course_id)
+);
+
+-- Discussions (per course)
+CREATE TABLE IF NOT EXISTS discussions (
+  id SERIAL PRIMARY KEY,
+  course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_courses_roadmap ON courses(roadmap_id);
 CREATE INDEX IF NOT EXISTS idx_modules_course ON modules(course_id);
@@ -127,6 +180,11 @@ CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 CREATE INDEX IF NOT EXISTS idx_progress_user ON progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_course ON reviews(course_id);
+CREATE INDEX IF NOT EXISTS idx_quizzes_lesson ON quizzes(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_questions_quiz ON quiz_questions(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user ON quiz_attempts(user_id);
+CREATE INDEX IF NOT EXISTS idx_certificates_user ON certificates(user_id);
+CREATE INDEX IF NOT EXISTS idx_discussions_course ON discussions(course_id);
 
 -- Storage bucket for uploads (run in Supabase dashboard or via API):
 -- CREATE STORAGE BUCKET 'uploads' with public access
