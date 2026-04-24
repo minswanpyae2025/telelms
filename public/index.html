@@ -31,7 +31,8 @@
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Pyidaungsu', 'Padauk', 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
-    body { background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 90px; overflow-x: hidden; }
+    html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; min-height: 100dvh; padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); overflow-x: hidden; -webkit-font-smoothing: antialiased; }
 
     /* Screens */
     .screen { display: none; min-height: calc(100vh - 90px); }
@@ -129,42 +130,49 @@
       bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(255,255,255,0.92);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-top: 1px solid rgba(0,0,0,0.04);
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-top: 1px solid rgba(0,0,0,0.06);
       display: flex;
       z-index: 50;
-      padding: 6px 8px;
-      padding-bottom: max(6px, env(safe-area-inset-bottom));
+      padding: 4px 6px;
+      padding-bottom: max(4px, env(safe-area-inset-bottom));
+      box-shadow: 0 -2px 20px rgba(0,0,0,0.04);
     }
     .nav-item {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 8px 4px 4px;
+      justify-content: center;
+      min-height: 52px;
+      padding: 6px 4px 4px;
       cursor: pointer;
       transition: all 0.25s;
       font-size: 10px;
       font-weight: 600;
       color: var(--text-muted);
-      gap: 4px;
-      border-radius: 12px;
+      gap: 3px;
+      border-radius: 14px;
       position: relative;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
     }
+    .nav-item:active { background: rgba(108,92,231,0.06); }
     .nav-item.active { color: var(--primary); }
     .nav-item.active::before {
       content: '';
       position: absolute;
-      top: 2px;
-      width: 20px;
+      top: 0;
+      width: 24px;
       height: 3px;
-      border-radius: 99px;
-      background: var(--primary);
+      border-radius: 0 0 99px 99px;
+      background: linear-gradient(90deg, var(--primary), var(--primary-light));
     }
-    .nav-item svg { width: 22px; height: 22px; transition: transform 0.2s; }
-    .nav-item.active svg { transform: scale(1.1); }
+    .nav-item svg { width: 24px; height: 24px; transition: transform 0.2s; }
+    .nav-item.active svg { transform: scale(1.12); }
+    .nav-item span { font-size: 10px; letter-spacing: 0.2px; }
 
     /* Progress */
     .progress-bar { background: rgba(108,92,231,0.1); border-radius: 99px; height: 8px; overflow: hidden; }
@@ -248,18 +256,24 @@
 
     /* Utility */
     .gradient-text { background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .section-title { font-size: 18px; font-weight: 800; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-    .empty-state { text-align: center; padding: 48px 24px; }
-    .empty-state-icon { font-size: 56px; margin-bottom: 16px; animation: float 3s ease-in-out infinite; display: block; }
-    .empty-state-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
-    .empty-state-desc { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+    .section-title { font-size: 17px; font-weight: 800; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .empty-state { text-align: center; padding: 60px 28px; }
+    .empty-state-icon { font-size: 64px; margin-bottom: 20px; animation: float 3s ease-in-out infinite; display: block; }
+    .empty-state-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; line-height: 1.5; }
+    .empty-state-desc { font-size: 13px; color: var(--text-muted); line-height: 1.7; max-width: 260px; margin: 0 auto; }
+
+    /* Mobile-first responsive */
+    @media (max-width: 380px) {
+      .section-title { font-size: 15px; }
+      .badge { font-size: 10px; padding: 4px 10px; }
+    }
     .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   </style>
 </head>
 <body>
   <!-- Header -->
-  <div id="app-header" style="background: linear-gradient(135deg, #6C5CE7 0%, #A29BFE 50%, #81ECEC 100%); background-size: 200% 200%; animation: gradientShift 8s ease infinite; padding: 20px 20px 24px; position: relative; overflow: hidden;">
+  <div id="app-header" style="background: linear-gradient(135deg, #6C5CE7 0%, #A29BFE 50%, #81ECEC 100%); background-size: 200% 200%; animation: gradientShift 8s ease infinite; padding: 16px 16px 20px; padding-top: max(16px, env(safe-area-inset-top)); position: relative; overflow: hidden;">
     <div style="position:absolute;inset:0;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2220%22 cy=%2280%22 r=%2240%22 fill=%22rgba(255,255,255,0.05)%22/><circle cx=%2280%22 cy=%2230%22 r=%2260%22 fill=%22rgba(255,255,255,0.03)%22/></svg>');"></div>
     <div id="header-back" class="hidden" style="display:none;align-items:center;gap:6px;cursor:pointer;margin-bottom:12px;color:#fff;" onclick="goBack()">
       <svg width="20" height="20" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M14 10H4m0 0l5-5m-5 5l5 5"/></svg>
@@ -277,23 +291,23 @@
   </div>
 
   <!-- Home Screen -->
-  <div id="screen-home" class="screen active" style="padding: 0 16px 16px;">
+  <div id="screen-home" class="screen active" style="padding: 0 14px 16px;">
     <!-- Announcement bar -->
-    <div id="announcements-bar" class="hidden" style="margin: -12px 4px 16px; padding: 14px 16px; border-radius: 16px; background: linear-gradient(135deg, #FFEAA7, #FDCB6E); box-shadow: 0 2px 10px rgba(253,203,110,0.3);">
+    <div id="announcements-bar" class="hidden" style="margin: 0 0 16px; padding: 14px 16px; border-radius: var(--radius-sm); background: linear-gradient(135deg, #FFF3BF, #FFEAA7, #FDCB6E); box-shadow: 0 4px 14px rgba(253,203,110,0.25); border: 1px solid rgba(253,203,110,0.3);">
       <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:18px;">📢</span>
-        <p style="font-size:13px;font-weight:600;color:#6C5200;" id="announcement-text"></p>
+        <span style="font-size:20px;">📢</span>
+        <p style="font-size:13px;font-weight:700;color:#92400E;line-height:1.5;" id="announcement-text"></p>
       </div>
     </div>
 
     <!-- Roadmaps -->
-    <div id="roadmaps-section" style="margin-top:20px;">
+    <div id="roadmaps-section" style="margin-top:16px;">
       <h2 class="section-title" id="roadmaps-title">🗺️ အသက်မွေးလမ်းကြောင်းများ</h2>
-      <div id="roadmaps-list" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;"></div>
+      <div id="roadmaps-list" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;"></div>
     </div>
 
     <!-- Courses -->
-    <div id="courses-section" style="margin-top:28px;">
+    <div id="courses-section" style="margin-top:22px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
         <h2 class="section-title" style="margin-bottom:0;" id="courses-title">📖 သင်တန်းများ</h2>
         <span style="font-size:13px;font-weight:600;color:var(--primary);cursor:pointer;" onclick="loadAllCourses()" id="view-all-btn">အားလုံးကြည့်ရန်</span>
@@ -362,12 +376,12 @@
   <!-- Profile / Payment History -->
   <div id="screen-profile" class="screen" style="padding:16px;">
     <!-- Profile hero card -->
-    <div class="card card-elevated" style="padding:24px;margin-bottom:20px;background:linear-gradient(135deg,rgba(108,92,231,0.06),rgba(0,206,201,0.06));">
-      <div style="display:flex;align-items:center;gap:16px;">
-        <div id="profile-avatar" style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;box-shadow:0 4px 15px rgba(108,92,231,0.3);">?</div>
-        <div>
-          <h3 style="font-size:18px;font-weight:800;" id="profile-name">အသုံးပြုသူ</h3>
-          <p style="font-size:13px;color:var(--text-muted);" id="profile-username">@username</p>
+    <div class="card card-elevated" style="padding:20px;margin-bottom:18px;background:linear-gradient(135deg,rgba(108,92,231,0.06),rgba(0,206,201,0.06));">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div id="profile-avatar" style="width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;box-shadow:0 4px 15px rgba(108,92,231,0.3);flex-shrink:0;">?</div>
+        <div style="min-width:0;">
+          <h3 style="font-size:17px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="profile-name">အသုံးပြုသူ</h3>
+          <p style="font-size:12px;color:var(--text-muted);" id="profile-username">@username</p>
         </div>
       </div>
     </div>

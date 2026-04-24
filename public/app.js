@@ -373,21 +373,21 @@ function applyLanguageUI() {
 async function loadHome() {
   // Skeleton loaders
   document.getElementById('roadmaps-list').innerHTML = Array(4).fill(`
-    <div style="min-width:150px;scroll-snap-align:start;">
-      <div class="card" style="padding:20px;text-align:center;">
-        <div class="skeleton" style="width:48px;height:48px;border-radius:16px;margin:0 auto 10px;"></div>
-        <div class="skeleton" style="height:12px;width:80%;margin:0 auto 6px;"></div>
+    <div style="min-width:130px;max-width:155px;scroll-snap-align:start;flex-shrink:0;">
+      <div class="card" style="padding:16px 12px;text-align:center;min-height:115px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <div class="skeleton" style="width:50px;height:50px;border-radius:16px;margin-bottom:8px;"></div>
+        <div class="skeleton" style="height:12px;width:80%;margin:0 auto 4px;"></div>
         <div class="skeleton" style="height:10px;width:60%;margin:0 auto;"></div>
       </div>
     </div>`).join('');
   document.getElementById('courses-list').innerHTML = Array(3).fill(`
-    <div class="card" style="padding:16px;">
-      <div style="display:flex;gap:14px;align-items:center;">
-        <div class="skeleton" style="width:56px;height:56px;border-radius:16px;flex-shrink:0;"></div>
+    <div class="card" style="padding:14px;">
+      <div style="display:flex;gap:12px;align-items:center;">
+        <div class="skeleton" style="width:50px;height:50px;border-radius:14px;flex-shrink:0;"></div>
         <div style="flex:1;">
-          <div class="skeleton" style="height:14px;width:70%;margin-bottom:8px;"></div>
-          <div class="skeleton" style="height:11px;width:100%;margin-bottom:8px;"></div>
-          <div class="skeleton" style="height:22px;width:90px;border-radius:99px;"></div>
+          <div class="skeleton" style="height:14px;width:70%;margin-bottom:6px;"></div>
+          <div class="skeleton" style="height:11px;width:100%;margin-bottom:6px;"></div>
+          <div class="skeleton" style="height:20px;width:80px;border-radius:99px;"></div>
         </div>
       </div>
     </div>`).join('');
@@ -413,14 +413,14 @@ async function loadHome() {
   rl.innerHTML = roadmaps.map(r => {
     const color = r.color || '#6C5CE7';
     return `
-    <div style="min-width:150px;scroll-snap-align:start;cursor:pointer;" onclick="loadRoadmapCourses(${r.id}, '${(r.icon + ' ' + r.title).replace(/'/g, "\\'")}')">
-      <div class="card card-elevated" style="padding:20px;text-align:center;position:relative;overflow:hidden;">
-        <div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:${color};opacity:0.08;"></div>
-        <div style="width:48px;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 10px;background:${color}15;">
+    <div style="min-width:130px;max-width:155px;scroll-snap-align:start;cursor:pointer;flex-shrink:0;" onclick="loadRoadmapCourses(${r.id}, '${(r.icon + ' ' + r.title).replace(/'/g, "\\'")}')">
+      <div class="card card-elevated" style="padding:16px 12px;text-align:center;position:relative;overflow:hidden;min-height:115px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <div style="position:absolute;top:-20px;right:-20px;width:70px;height:70px;border-radius:50%;background:${color};opacity:0.08;"></div>
+        <div style="width:50px;height:50px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:8px;background:${color}15;flex-shrink:0;">
           ${r.icon}
         </div>
-        <h3 style="font-size:13px;font-weight:700;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.title}</h3>
-        <p style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.description || ''}</p>
+        <h3 style="font-size:12px;font-weight:700;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.4;">${r.title}</h3>
+        <p style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;line-height:1.4;margin-top:2px;">${r.description || ''}</p>
       </div>
     </div>`;
   }).join('');
@@ -435,24 +435,24 @@ function courseCard(c) {
   const cardIcon = rm ? rm.icon : '📖';
   const diffColor = difficultyColor(c.difficulty);
   return `
-    <div class="card card-elevated" style="cursor:pointer;padding:16px;" onclick="loadCourse(${c.id})">
-      <div style="display:flex;gap:14px;align-items:flex-start;">
-        <div style="width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;position:relative;overflow:hidden;${c.thumbnail_url ? '' : 'background:' + cardColor + '12;'}">
-          ${c.thumbnail_url ? `<img src="${c.thumbnail_url}" style="width:100%;height:100%;object-fit:cover;border-radius:16px;">` : cardIcon}
+    <div class="card card-elevated" style="cursor:pointer;padding:14px;" onclick="loadCourse(${c.id})">
+      <div style="display:flex;gap:12px;align-items:center;">
+        <div style="width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;position:relative;overflow:hidden;${c.thumbnail_url ? '' : 'background:' + cardColor + '12;'}">
+          ${c.thumbnail_url ? `<img src="${c.thumbnail_url}" style="width:100%;height:100%;object-fit:cover;border-radius:14px;">` : cardIcon}
         </div>
         <div style="flex:1;min-width:0;">
-          <h3 style="font-size:15px;font-weight:700;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.title}</h3>
-          <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:10px;" class="line-clamp-2">${c.description || ''}</p>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <span class="badge badge-blue" style="font-size:12px;">${formatMMK(c.price_mmk)}</span>
-            <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);font-weight:600;">
+          <h3 style="font-size:14px;font-weight:700;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.title}</h3>
+          <p style="font-size:11px;color:var(--text-secondary);line-height:1.4;margin-bottom:8px;" class="line-clamp-2">${c.description || ''}</p>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span class="badge badge-blue" style="font-size:11px;padding:4px 10px;">${formatMMK(c.price_mmk)}</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text-muted);font-weight:600;">
               <span class="difficulty-dot" style="background:${diffColor};"></span>
               ${difficultyLabel(c.difficulty)}
             </span>
-            ${c.duration_hours ? `<span style="font-size:11px;color:var(--text-muted);">⏱ ${c.duration_hours}hr</span>` : ''}
+            ${c.duration_hours ? `<span style="font-size:10px;color:var(--text-muted);">⏱ ${c.duration_hours}hr</span>` : ''}
           </div>
         </div>
-        <svg width="16" height="16" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;margin-top:6px;"><path d="M6 4l4 4-4 4"/></svg>
+        <svg width="16" height="16" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;"><path d="M6 4l4 4-4 4"/></svg>
       </div>
     </div>`;
 }
@@ -467,13 +467,13 @@ async function loadRoadmapCourses(roadmapId, title) {
   showScreen('roadmap-courses');
   document.getElementById('roadmap-title').innerHTML = title;
   document.getElementById('roadmap-courses-list').innerHTML = Array(3).fill(`
-    <div class="card" style="padding:16px;">
-      <div style="display:flex;gap:14px;align-items:center;">
-        <div class="skeleton" style="width:56px;height:56px;border-radius:16px;flex-shrink:0;"></div>
+    <div class="card" style="padding:14px;">
+      <div style="display:flex;gap:12px;align-items:center;">
+        <div class="skeleton" style="width:50px;height:50px;border-radius:14px;flex-shrink:0;"></div>
         <div style="flex:1;">
-          <div class="skeleton" style="height:14px;width:70%;margin-bottom:8px;"></div>
-          <div class="skeleton" style="height:11px;width:100%;margin-bottom:8px;"></div>
-          <div class="skeleton" style="height:22px;width:90px;border-radius:99px;"></div>
+          <div class="skeleton" style="height:14px;width:70%;margin-bottom:6px;"></div>
+          <div class="skeleton" style="height:11px;width:100%;margin-bottom:6px;"></div>
+          <div class="skeleton" style="height:20px;width:80px;border-radius:99px;"></div>
         </div>
       </div>
     </div>`).join('');
@@ -557,7 +557,7 @@ async function loadCourse(id) {
 
   let html = `
     <!-- Course Hero -->
-    <div style="background:linear-gradient(135deg, ${heroColor}dd, ${heroColor}88);padding:28px 20px 24px;position:relative;overflow:hidden;">
+    <div style="background:linear-gradient(135deg, ${heroColor}dd, ${heroColor}88);padding:22px 16px 18px;position:relative;overflow:hidden;">
       <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.1);"></div>
       <div style="position:absolute;bottom:-20px;left:-20px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.06);"></div>
       <div style="position:relative;z-index:1;">
@@ -565,8 +565,8 @@ async function loadCourse(id) {
           <span style="font-size:14px;">${heroIcon}</span>
           <span style="font-size:12px;color:#fff;font-weight:600;">${rm ? rm.title : ''}</span>
         </div>
-        <h1 style="font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;line-height:1.3;">${course.title}</h1>
-        <p style="font-size:13px;color:rgba(255,255,255,0.85);line-height:1.6;">${course.description || ''}</p>
+        <h1 style="font-size:20px;font-weight:800;color:#fff;margin-bottom:6px;line-height:1.35;">${course.title}</h1>
+        <p style="font-size:12px;color:rgba(255,255,255,0.85);line-height:1.6;">${course.description || ''}</p>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px;">
           <span style="background:rgba(255,255,255,0.2);backdrop-filter:blur(10px);color:#fff;padding:6px 14px;border-radius:99px;font-size:13px;font-weight:700;">${formatMMK(course.price_mmk)}</span>
           <span style="display:inline-flex;align-items:center;gap:4px;color:rgba(255,255,255,0.9);font-size:12px;font-weight:600;">

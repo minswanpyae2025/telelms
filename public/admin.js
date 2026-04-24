@@ -32,6 +32,12 @@ function statusBadge(s) {
   return `<span class="badge ${cls}">${label}</span>`;
 }
 
+// --- SIDEBAR TOGGLE ---
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.classList.toggle('open');
+}
+
 // --- LOGIN ---
 async function doLogin() {
   const pwd = document.getElementById('login-password').value;
@@ -51,7 +57,8 @@ function switchPage(page) {
   document.getElementById('page-' + page)?.classList.remove('hidden');
   document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  document.getElementById('sidebar').classList.remove('open');
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) sidebar.classList.remove('open');
 
   if (page === 'stats') loadStats();
   else if (page === 'payments') loadPayments();

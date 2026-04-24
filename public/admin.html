@@ -60,10 +60,11 @@
 
     /* Table */
     table { width: 100%; border-collapse: collapse; }
-    th { background: #F8F9FD; padding: 14px 18px; text-align: left; font-size: 12px; font-weight: 700; color: #6B7280; border-bottom: 1px solid #F1F3F9; text-transform: uppercase; letter-spacing: 0.5px; }
-    td { padding: 14px 18px; font-size: 13px; border-bottom: 1px solid #F8F9FD; color: #374151; }
+    th { background: #F8F9FD; padding: 12px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #6B7280; border-bottom: 1px solid #F1F3F9; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+    td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid #F8F9FD; color: #374151; }
     tr:hover { background: #FAFBFE; }
     tr:last-child td { border-bottom: none; }
+    .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
     /* Modal */
     .modal-overlay { position: fixed; inset: 0; background: rgba(15,15,35,0.5); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s; }
@@ -115,9 +116,24 @@
     .login-card { background: #fff; border-radius: 28px; padding: 40px 36px; max-width: 400px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
 
     @media (max-width: 768px) {
-      .sidebar { transform: translateX(-100%); }
+      .sidebar { transform: translateX(-100%); width: 280px; }
       .sidebar.open { transform: translateX(0); }
-      .main-content { margin-left: 0; padding: 20px 16px; }
+      .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 35; }
+      .sidebar.open ~ .sidebar-overlay { display: block; }
+      .main-content { margin-left: 0; padding: 16px 12px; }
+      .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .page-header h2 { font-size: 18px; }
+      .stat-card { padding: 18px; }
+      .stat-card p.text-2xl { font-size: 20px !important; }
+      .modal-box { width: 96%; padding: 24px 20px; border-radius: 20px; }
+      .form-input { padding: 12px 14px; font-size: 14px; }
+      .btn { padding: 12px 18px; font-size: 13px; }
+    }
+    @media (max-width: 480px) {
+      .main-content { padding: 12px 10px; }
+      .stat-card { padding: 16px; border-radius: 16px; }
+      th { padding: 10px 10px; font-size: 10px; }
+      td { padding: 10px 10px; font-size: 12px; }
     }
   </style>
 </head>
@@ -171,16 +187,18 @@
 
     <!-- Mobile Header -->
     <div class="md:hidden fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-lg shadow-sm z-30 px-4 py-3 flex items-center gap-3" style="border-bottom:1px solid rgba(0,0,0,0.06);">
-      <button onclick="document.getElementById('sidebar').classList.toggle('open')" class="text-xl">☰</button>
+      <button onclick="toggleSidebar()" class="text-xl" style="min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;">☰</button>
       <h1 class="font-bold text-sm">🎓 လမ်းစ Admin</h1>
     </div>
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
     <!-- Main Content -->
     <div class="main-content md:pt-0 pt-14">
       <!-- Stats Page -->
       <div id="page-stats" class="page">
         <div class="page-header"><h2>📊 ဒက်ရှ်ဘုတ်</h2></div>
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8" id="stats-grid"></div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" id="stats-grid"></div>
       </div>
 
       <!-- Payments Page -->
