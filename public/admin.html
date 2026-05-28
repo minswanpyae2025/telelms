@@ -1,46 +1,370 @@
 <!DOCTYPE html>
 <html lang="my">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>လမ်းစ - Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Padauk:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    @font-face { font-family: 'Pyidaungsu'; src: url('https://cdn.jsdelivr.net/gh/AungMyoKyaw/Myanmar-Unicode-Fonts@master/Pyidaungsu/pyidaungsu-1.3.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+    @font-face { font-family: 'Pyidaungsu'; src: url('https://cdn.jsdelivr.net/gh/AungMyoKyaw/Myanmar-Unicode-Fonts@master/Pyidaungsu/pyidaungsu-1.3.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+    * { font-family: 'Pyidaungsu', 'Padauk', 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background: #F0F2F8; margin: 0; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 270px;
+      background: linear-gradient(180deg, #1a1147 0%, #2d2070 40%, #3730a3 100%);
+      min-height: 100vh;
+      color: #fff;
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 40;
+      transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-brand { padding: 28px 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .sidebar-brand h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; }
+    .sidebar-brand p { font-size: 12px; opacity: 0.5; margin-top: 2px; }
+    .sidebar-nav { padding: 16px 12px; flex: 1; }
+    .sidebar-item {
+      padding: 11px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      border-radius: 12px;
+      margin-bottom: 2px;
+      transition: all 0.2s;
+      font-size: 14px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.7);
+      position: relative;
+    }
+    .sidebar-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .sidebar-item.active { background: rgba(255,255,255,0.15); color: #fff; font-weight: 700; }
+    .sidebar-item.active::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 99px; background: #A5B4FC; }
+    .sidebar-footer { padding: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+    .sidebar-footer .sidebar-item { font-size: 12px; padding: 9px 16px; color: rgba(255,255,255,0.5); }
+    .sidebar-footer .sidebar-item:hover { color: rgba(255,255,255,0.8); }
+
+    /* Main Content */
+    .main-content { margin-left: 270px; padding: 28px 32px; min-height: 100vh; }
+
+    /* Cards */
+    .stat-card { background: #fff; border-radius: 20px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.02); border: 1px solid rgba(0,0,0,0.04); }
+    .table-container { background: #fff; border-radius: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden; border: 1px solid rgba(0,0,0,0.04); }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #F8F9FD; padding: 12px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #6B7280; border-bottom: 1px solid #F1F3F9; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+    td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid #F8F9FD; color: #374151; }
+    tr:hover { background: #FAFBFE; }
+    tr:last-child td { border-bottom: none; }
+    .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(15,15,35,0.5); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s; }
+    .modal-box { background: #fff; border-radius: 24px; padding: 32px; max-width: 560px; width: 92%; max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.15); animation: scaleIn 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+    /* Forms */
+    .form-label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #374151; }
+    .form-input { width: 100%; padding: 11px 16px; border: 1.5px solid #E5E7EB; border-radius: 12px; font-size: 14px; outline: none; transition: all 0.2s; background: #FAFBFE; color: #1F2937; }
+    .form-input:focus { border-color: #818CF8; box-shadow: 0 0 0 3px rgba(129,140,248,0.15); background: #fff; }
+
+    /* Buttons */
+    .btn { padding: 11px 22px; border-radius: 12px; font-weight: 700; font-size: 13px; cursor: pointer; border: none; transition: all 0.2s; letter-spacing: 0.2px; }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: linear-gradient(135deg, #6366f1, #818CF8); color: #fff; box-shadow: 0 2px 10px rgba(99,102,241,0.3); }
+    .btn-primary:hover { box-shadow: 0 4px 15px rgba(99,102,241,0.4); }
+    .btn-danger { background: linear-gradient(135deg, #EF4444, #F87171); color: #fff; box-shadow: 0 2px 8px rgba(239,68,68,0.2); }
+    .btn-outline { background: transparent; border: 1.5px solid #E5E7EB; color: #374151; }
+    .btn-outline:hover { border-color: #818CF8; color: #6366f1; }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 99px; font-size: 11px; font-weight: 700; letter-spacing: 0.2px; }
+    .badge-green { background: linear-gradient(135deg, #D1FAE5, #A7F3D0); color: #065F46; }
+    .badge-yellow { background: linear-gradient(135deg, #FEF3C7, #FDE68A); color: #92400E; }
+    .badge-red { background: linear-gradient(135deg, #FEE2E2, #FECACA); color: #991B1B; }
+    .pending-badge { background: linear-gradient(135deg, #EF4444, #F87171); color: #fff; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; box-shadow: 0 2px 6px rgba(239,68,68,0.3); }
+
+    /* Toast */
+    .toast { position: fixed; top: 24px; right: 24px; background: #1E293B; color: #fff; padding: 16px 28px; border-radius: 16px; font-size: 14px; font-weight: 600; z-index: 200; animation: slideIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94); box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
+    @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* Chart */
+    .chart-bar { display: flex; align-items: flex-end; gap: 6px; height: 140px; padding: 0 4px; }
+    .chart-bar-item { background: linear-gradient(180deg, #818CF8, #6366F1); border-radius: 6px 6px 0 0; min-width: 28px; transition: height 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+    /* Page headers */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .page-header h2 { font-size: 22px; font-weight: 800; color: #1F2937; }
+
+    /* Toggle switch */
+    .toggle-track { width: 48px; height: 26px; background: #D1D5DB; border-radius: 99px; position: relative; cursor: pointer; transition: background 0.3s; }
+    .toggle-track.active { background: linear-gradient(135deg, #6366f1, #818CF8); }
+    .toggle-thumb { width: 22px; height: 22px; background: #fff; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: transform 0.3s; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+    .toggle-track.active .toggle-thumb { transform: translateX(22px); }
+
+    /* Login */
+    .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1a1147 0%, #3730a3 50%, #6366f1 100%); }
+    .login-card { background: #fff; border-radius: 28px; padding: 40px 36px; max-width: 400px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); width: 280px; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 35; }
+      .sidebar.open ~ .sidebar-overlay { display: block; }
+      .main-content { margin-left: 0; padding: 16px 12px; }
+      .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .page-header h2 { font-size: 18px; }
+      .stat-card { padding: 18px; }
+      .stat-card p.text-2xl { font-size: 20px !important; }
+      .modal-box { width: 96%; padding: 24px 20px; border-radius: 20px; }
+      .form-input { padding: 12px 14px; font-size: 14px; }
+      .btn { padding: 12px 18px; font-size: 13px; }
+    }
+    @media (max-width: 480px) {
+      .main-content { padding: 12px 10px; }
+      .stat-card { padding: 16px; border-radius: 16px; }
+      th { padding: 10px 10px; font-size: 10px; }
+      td { padding: 10px 10px; font-size: 12px; }
+    }
+  </style>
 </head>
 <body>
-    <h2>Admin Login</h2>
-    <input type="password" id="adminPassword">
-    <button onclick="login()">ဝင်မည်</button>
-    <div id="dashboard" style="display:none;">
-        <h3 style="text-align:center;">LMS Admin</h3>
-        <button onclick="showSection('roadmaps')">Roadmaps</button>
-        <button onclick="showSection('courses')">Courses</button>
-        <button onclick="showSection('modules')">Modules</button>
-        <button onclick="showSection('announcements')">Announcements</button>
-        <button onclick="showSection('paymentMethods')">Payment Methods</button>
-        <button onclick="showSection('payments')">Payments</button>
-        <button onclick="showSection('users')">Users</button>
-
-        <div id="section-roadmaps" class="section">
-            <h2>Roadmaps</h2><button onclick="saveRoadmap()">အသစ်ထည့်မည်</button><table id="roadmapsTable"><tbody></tbody></table>
-        </div>
-        <div id="section-courses" class="section" style="display:none;">
-            <h2>Courses</h2><button onclick="saveCourse()">အသစ်ထည့်မည်</button><table id="coursesTable"><tbody></tbody></table>
-        </div>
-        <div id="section-modules" class="section" style="display:none;">
-            <h2>Modules & Lessons</h2><button onclick="saveModule()">Module</button><button onclick="saveLesson()">Lesson</button><table id="modulesTable"><tbody></tbody></table>
-        </div>
-        <div id="section-announcements" class="section" style="display:none;">
-            <h2>Announcements</h2><button onclick="saveAnnouncement()">အသစ်ထည့်မည်</button><table id="annTable"><tbody></tbody></table>
-        </div>
-        <div id="section-paymentMethods" class="section" style="display:none;">
-            <h2>Payment Methods</h2><button onclick="savePaymentMethod()">အသစ်ထည့်မည်</button><table id="pmTable"><tbody></tbody></table>
-        </div>
-        <div id="section-payments" class="section" style="display:none;">
-            <h2>Payments</h2><select id="paymentStatusFilter" onchange="loadPayments()"><option value="">All</option><option value="pending">Pending</option></select><table id="paymentsTable"><tbody></tbody></table>
-        </div>
-        <div id="section-users" class="section" style="display:none;">
-            <h2>Users</h2><table id="usersTable"><tbody></tbody></table>
-        </div>
+  <!-- Login Screen -->
+  <div id="login-screen" class="login-container">
+    <div class="login-card">
+      <div class="text-center mb-8">
+        <div style="width:64px;height:64px;border-radius:20px;background:linear-gradient(135deg,#6366f1,#818CF8);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px;box-shadow:0 4px 15px rgba(99,102,241,0.3);">🎓</div>
+        <h1 class="text-xl font-bold text-gray-900">လမ်းစ (Lann Sa)</h1>
+        <p class="text-sm text-gray-400 mt-1">Admin Dashboard</p>
+      </div>
+      <div class="mb-5">
+        <label class="form-label">စကားဝှက်</label>
+        <input type="password" id="login-password" class="form-input" placeholder="Admin စကားဝှက် ထည့်ပါ" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="btn btn-primary w-full" style="padding:14px;" onclick="doLogin()">ဝင်ရောက်ရန်</button>
+      <p id="login-error" class="text-red-500 text-xs mt-3 hidden text-center">စကားဝှက် မှားနေပါသည်</p>
     </div>
-    <script src="/admin.js"></script>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="hidden">
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <h1>🎓 လမ်းစ</h1>
+        <p>Admin Dashboard</p>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-item active" onclick="switchPage('stats')" data-page="stats">📊 ဒက်ရှ်ဘုတ်</div>
+        <div class="sidebar-item" onclick="switchPage('payments')" data-page="payments">
+          💳 ငွေပေးချေမှုများ <span id="pending-badge" class="pending-badge hidden">0</span>
+        </div>
+        <div class="sidebar-item" onclick="switchPage('payment-methods')" data-page="payment-methods">🏦 ငွေပေးချေနည်းများ</div>
+        <div class="sidebar-item" onclick="switchPage('roadmaps')" data-page="roadmaps">🗺️ လမ်းကြောင်းများ</div>
+        <div class="sidebar-item" onclick="switchPage('courses')" data-page="courses">📖 သင်တန်းများ</div>
+        <div class="sidebar-item" onclick="switchPage('content')" data-page="content">📝 အကြောင်းအရာ</div>
+        <div class="sidebar-item" onclick="switchPage('coupons')" data-page="coupons">🎟️ ကူပွန်/Referral</div>
+        <div class="sidebar-item" onclick="switchPage('announcements')" data-page="announcements">📢 ကြေညာချက်များ</div>
+        <div class="sidebar-item" onclick="switchPage('users')" data-page="users">👥 အသုံးပြုသူများ</div>
+        <div class="sidebar-item" onclick="switchPage('analytics')" data-page="analytics">📈 ခွဲခြမ်းစိတ်ဖြာ</div>
+        <div class="sidebar-item" onclick="switchPage('settings')" data-page="settings">⚙️ Settings</div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-item" onclick="exportCSV('users')">📥 Users CSV</div>
+        <div class="sidebar-item" onclick="exportCSV('payments')">📥 Payments CSV</div>
+        <div class="sidebar-item" onclick="exportCSV('courses')">📥 Courses CSV</div>
+      </div>
+    </div>
+
+    <!-- Mobile Header -->
+    <div class="md:hidden fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-lg shadow-sm z-30 px-4 py-3 flex items-center gap-3" style="border-bottom:1px solid rgba(0,0,0,0.06);">
+      <button onclick="toggleSidebar()" class="text-xl" style="min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;">☰</button>
+      <h1 class="font-bold text-sm">🎓 လမ်းစ Admin</h1>
+    </div>
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Main Content -->
+    <div class="main-content md:pt-0 pt-14">
+      <!-- Stats Page -->
+      <div id="page-stats" class="page">
+        <div class="page-header"><h2>📊 ဒက်ရှ်ဘုတ်</h2></div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" id="stats-grid"></div>
+      </div>
+
+      <!-- Payments Page -->
+      <div id="page-payments" class="page hidden">
+        <div class="page-header">
+          <h2>💳 ငွေပေးချေမှုများ</h2>
+          <div class="flex gap-3">
+            <button class="btn btn-outline text-xs" id="bulk-approve-btn" onclick="bulkApprove()" style="display:none;">အားလုံး အတည်ပြုရန်</button>
+            <select class="form-input" style="width:auto;padding:9px 14px;font-size:13px;" onchange="loadPayments(this.value)" id="payment-filter">
+              <option value="">အားလုံး</option>
+              <option value="pending">စိစစ်ဆဲ</option>
+              <option value="approved">အတည်ပြုပြီး</option>
+              <option value="rejected">ပယ်ချပြီး</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-container" id="payments-table"></div>
+      </div>
+
+      <!-- Payment Methods Page -->
+      <div id="page-payment-methods" class="page hidden">
+        <div class="page-header">
+          <h2>🏦 ငွေပေးချေနည်းများ</h2>
+          <button class="btn btn-primary" onclick="showPaymentMethodModal()">+ ထည့်ရန်</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="payment-methods-grid"></div>
+      </div>
+
+      <!-- Roadmaps Page -->
+      <div id="page-roadmaps" class="page hidden">
+        <div class="page-header">
+          <h2>🗺️ လမ်းကြောင်းများ</h2>
+          <button class="btn btn-primary" onclick="showRoadmapModal()">+ ထည့်ရန်</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5" id="roadmaps-grid"></div>
+      </div>
+
+      <!-- Courses Page -->
+      <div id="page-courses" class="page hidden">
+        <div class="page-header">
+          <h2>📖 သင်တန်းများ</h2>
+          <button class="btn btn-primary" onclick="showCourseModal()">+ ထည့်ရန်</button>
+        </div>
+        <div class="table-container" id="courses-table"></div>
+      </div>
+
+      <!-- Content (Modules/Lessons) Page -->
+      <div id="page-content" class="page hidden">
+        <div class="page-header"><h2>📝 အကြောင်းအရာ စီမံရန်</h2></div>
+        <div class="mb-5">
+          <select class="form-input" id="content-course-select" onchange="loadCourseContent(this.value)" style="max-width:320px;">
+            <option value="">သင်တန်း ရွေးပါ...</option>
+          </select>
+        </div>
+        <div id="content-area"></div>
+      </div>
+
+      <!-- Coupons Page -->
+      <div id="page-coupons" class="page hidden">
+        <div class="page-header">
+          <h2>🎟️ ကူပွန် / Referral Codes</h2>
+          <button class="btn btn-primary" onclick="showCouponModal()">+ ကူပွန် ထည့်ရန်</button>
+        </div>
+        <div class="table-container" id="coupons-table"></div>
+      </div>
+
+      <!-- Announcements Page -->
+      <div id="page-announcements" class="page hidden">
+        <div class="page-header">
+          <h2>📢 ကြေညာချက်များ</h2>
+          <button class="btn btn-primary" onclick="showAnnouncementModal()">+ ထည့်ရန်</button>
+        </div>
+        <div id="announcements-list" class="space-y-4"></div>
+      </div>
+
+      <!-- Users Page -->
+      <div id="page-users" class="page hidden">
+        <div class="page-header"><h2>👥 အသုံးပြုသူများ</h2></div>
+        <div class="table-container" id="users-table"></div>
+      </div>
+
+      <!-- Analytics Page -->
+      <div id="page-analytics" class="page hidden">
+        <div class="page-header"><h2>📈 ခွဲခြမ်းစိတ်ဖြာ</h2></div>
+        <div id="analytics-content"></div>
+      </div>
+
+      <!-- Settings Page -->
+      <div id="page-settings" class="page hidden">
+        <div class="page-header"><h2>⚙️ App Settings</h2></div>
+
+        <!-- Language Toggle -->
+        <div class="stat-card mb-5">
+          <h3 class="font-bold text-base mb-2">🌐 App Language</h3>
+          <p class="text-sm text-gray-400 mb-5">Toggle between Burmese and English for all users. This changes the entire app including bot messages.</p>
+          <div class="flex gap-3">
+            <button class="btn" id="lang-my-btn" onclick="setAppLanguage('my')">🇲🇲 Myanmar (Burmese)</button>
+            <button class="btn" id="lang-en-btn" onclick="setAppLanguage('en')">🇬🇧 English</button>
+          </div>
+        </div>
+
+        <!-- Payment Toggles -->
+        <div class="stat-card mb-5">
+          <h3 class="font-bold text-base mb-2">💳 Payment Methods Toggle</h3>
+          <p class="text-sm text-gray-400 mb-5">Enable or disable payment methods. Disabled methods won't be shown to users.</p>
+          <div class="space-y-4">
+            <div class="flex items-center justify-between p-5 rounded-2xl" style="background: #F8F9FD;">
+              <div>
+                <p class="font-bold text-sm">💰 Myanmar Manual Payment</p>
+                <p class="text-xs text-gray-400 mt-1">KBZ Pay, Wave, CB Pay, AYA Pay, etc.</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggle-myanmar" class="sr-only peer" onchange="togglePaymentMethod('myanmar_payment_enabled', this.checked)">
+                <div class="w-12 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-indigo-500" style="box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);"></div>
+              </label>
+            </div>
+            <div class="flex items-center justify-between p-5 rounded-2xl" style="background: #F8F9FD;">
+              <div>
+                <p class="font-bold text-sm">🪙 Crypto Payment (NOWPayments)</p>
+                <p class="text-xs text-gray-400 mt-1">Bitcoin, Ethereum, USDT, etc.</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggle-crypto" class="sr-only peer" onchange="togglePaymentMethod('crypto_payment_enabled', this.checked)">
+                <div class="w-12 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-indigo-500" style="box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- NOWPayments Config -->
+        <div class="stat-card mb-5">
+          <h3 class="font-bold text-base mb-2">🪙 NOWPayments Configuration</h3>
+          <p class="text-sm text-gray-400 mb-5">Configure your NOWPayments API credentials and accepted coins.</p>
+          <div class="space-y-4">
+            <div>
+              <label class="form-label">API Key</label>
+              <input type="password" class="form-input" id="np-api-key" placeholder="Your NOWPayments API Key">
+            </div>
+            <div>
+              <label class="form-label">IPN Secret</label>
+              <input type="password" class="form-input" id="np-ipn-secret" placeholder="Your NOWPayments IPN Secret">
+            </div>
+            <div>
+              <label class="form-label">Accepted Coins (comma separated)</label>
+              <input type="text" class="form-input" id="np-accepted-coins" placeholder="btc,eth,usdt,ltc,trx">
+              <p class="text-xs text-gray-400 mt-1.5">e.g. btc,eth,usdt,ltc,trx,bnb,sol,doge,xrp</p>
+            </div>
+            <button class="btn btn-primary" onclick="saveNowPaymentsConfig()">💾 Save NOWPayments Config</button>
+          </div>
+        </div>
+
+        <!-- Crypto Payments List -->
+        <div class="stat-card">
+          <h3 class="font-bold text-base mb-3">🪙 Crypto Payments</h3>
+          <div id="crypto-payments-table" class="table-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Modal Container -->
+  <div id="modal-container"></div>
+
+  <script src="admin.js"></script>
 </body>
 </html>
