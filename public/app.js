@@ -273,7 +273,64 @@ const L = {
   },
 };
 
+Object.assign(L.my, {
+  open_in_telegram_title: 'Telegram မှ ဖွင့်ပါ',
+  open_in_telegram_desc: 'လုံခြုံရေးအတွက် ဤ app ကို Telegram Mini App ထဲမှသာ အသုံးပြုနိုင်ပါသည်။',
+  open_in_telegram_btn: 'Telegram တွင် ဖွင့်ရန်',
+  banned_title: 'အသုံးပြုခွင့် ကန့်သတ်ထားပါသည်',
+  banned_desc: 'ဤ account အတွက် အသုံးပြုခွင့် ပိတ်ထားပါသည်။ Admin ကို ဆက်သွယ်ပါ။',
+  maintenance_title: 'ပြုပြင်ထိန်းသိမ်းနေပါသည်',
+  onboarding_title: 'ဘယ်လို စတင်မလဲ?',
+  onboarding_1: 'လမ်းကြောင်း ရွေးပါ', onboarding_2: 'သင်တန်း စာရင်းသွင်းပါ', onboarding_3: 'သင်ခန်းစာ လေ့လာပါ', onboarding_4: 'လက်မှတ် ရယူပါ',
+  dismiss: 'နားလည်ပါပြီ', show_guide: 'Guide ပြန်ကြည့်ရန်',
+  continue_learning: '▶️ ဆက်လက် လေ့လာရန်', next_lesson: 'နောက်သင်ခန်းစာ', continue_btn: 'ဆက်လုပ်ရန်',
+  free: 'အခမဲ့', preview: 'Preview', checklist_title: 'မပို့ခင် စစ်ဆေးရန်', checklist_1: 'ပမာဏအတိအကျ လွှဲပါ', checklist_2: 'စာရင်းမှန်ကြောင်း စစ်ပါ', checklist_3: 'ရှင်းလင်းသော Screenshot တင်ပါ',
+});
+Object.assign(L.en, {
+  open_in_telegram_title: 'Open from Telegram',
+  open_in_telegram_desc: 'For security, this app is only available inside Telegram Mini App.',
+  open_in_telegram_btn: 'Open in Telegram',
+  banned_title: 'Access restricted',
+  banned_desc: 'This account has been blocked. Please contact the admin.',
+  maintenance_title: 'Maintenance in progress',
+  onboarding_title: 'How to start',
+  onboarding_1: 'Choose a path', onboarding_2: 'Enroll in a course', onboarding_3: 'Learn lessons', onboarding_4: 'Get certificate',
+  dismiss: 'Got it', show_guide: 'Show guide again',
+  continue_learning: '▶️ Continue Learning', next_lesson: 'Next lesson', continue_btn: 'Continue',
+  free: 'Free', preview: 'Preview', checklist_title: 'Before submitting', checklist_1: 'Transfer the exact amount', checklist_2: 'Check account details', checklist_3: 'Upload a clear screenshot',
+});
+
 function _(key) { return (L[lang] || L.my)[key] || L.my[key] || key; }
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escapeAttr(value) { return escapeHtml(value); }
+function safeUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw, window.location.origin);
+    if (!['http:', 'https:'].includes(url.protocol)) return '';
+    return escapeAttr(url.href);
+  } catch (e) { return ''; }
+}
+function safeColor(value, fallback = '#6C5CE7') {
+  const color = String(value || '').trim();
+  return /^#[0-9a-f]{6}$/i.test(color) ? color : fallback;
+}
+function safeInitial(value) { return escapeHtml(String(value || 'U').trim().charAt(0) || 'U'); }
+function jsonArg(value) { return encodeURIComponent(JSON.stringify(value)); }
+function emptyState(icon, title, desc, actionHtml = '') {
+  return `<div class="empty-state"><span class="empty-state-icon">${icon}</span><p class="empty-state-title">${escapeHtml(title)}</p><p class="empty-state-desc">${escapeHtml(desc || '')}</p>${actionHtml}</div>`;
+}
+function blockedState(title, desc, actionHtml = '') {
+  document.body.innerHTML = `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#F7F8FC;"><div class="card card-elevated" style="padding:28px;text-align:center;max-width:420px;"><p style="font-size:56px;margin-bottom:12px;">🔒</p><h1 style="font-size:20px;font-weight:800;margin-bottom:8px;">${escapeHtml(title)}</h1><p style="font-size:14px;color:var(--text-secondary);line-height:1.7;">${escapeHtml(desc)}</p>${actionHtml}</div></div>`;
+}
+async function logBlockedAccess(reason) {
+  try { await fetch('/api/security/access-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event_type: 'blocked_access', reason }) }); } catch (e) {}
+}
+
 
 function headers(json = true) {
   const h = { 'X-Telegram-Init-Data': initData };
@@ -284,7 +341,15 @@ function headers(json = true) {
 async function api(path, opts = {}) {
   try {
     const res = await fetch(API + path, { headers: headers(opts.json !== false), ...opts });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      let payload = {};
+      try { payload = await res.json(); } catch (err) { payload = { message: await res.text() }; }
+      if (payload.error === 'BANNED') blockedState(_('banned_title'), payload.message || _('banned_desc'));
+      if (payload.error === 'MAINTENANCE') blockedState(_('maintenance_title'), payload.message || '');
+      const err = new Error(payload.message || payload.error || 'API error');
+      err.payload = payload;
+      throw err;
+    }
     return res.json();
   } catch (e) { console.error('API Error:', e); throw e; }
 }
@@ -369,8 +434,36 @@ function applyLanguageUI() {
   if (bt) bt.innerHTML = _('bookmarks_title');
 }
 
+function renderOnboarding() {
+  const el = document.getElementById('onboarding-card');
+  if (!el) return;
+  if (localStorage.getItem('lannsa_onboarding_dismissed') === '1') { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="card card-elevated" style="padding:16px;margin:16px 0;background:linear-gradient(135deg,rgba(108,92,231,0.08),rgba(129,236,236,0.08));">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;"><h3 style="font-size:15px;font-weight:800;">${_('onboarding_title')}</h3><button class="btn-outline" style="font-size:11px;padding:6px 10px;" onclick="localStorage.setItem('lannsa_onboarding_dismissed','1');renderOnboarding();">${_('dismiss')}</button></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;">${[['🗺️','onboarding_1'],['💳','onboarding_2'],['📖','onboarding_3'],['🏆','onboarding_4']].map(x => `<div><p style="font-size:22px;">${x[0]}</p><p style="font-size:10px;color:var(--text-secondary);font-weight:700;line-height:1.4;">${_(x[1])}</p></div>`).join('')}</div>
+  </div>`;
+}
+
+async function loadContinueLearning() {
+  const el = document.getElementById('continue-learning-section');
+  if (!el || !initData) return;
+  try {
+    const item = await api('/continue-learning');
+    if (!item) { el.innerHTML = ''; return; }
+    el.innerHTML = `<div class="card card-elevated" style="padding:16px;margin:14px 0;">
+      <p style="font-size:13px;font-weight:800;color:var(--primary);margin-bottom:6px;">${_('continue_learning')}</p>
+      <h3 style="font-size:15px;font-weight:800;">${escapeHtml(item.course.title)}</h3>
+      <p style="font-size:12px;color:var(--text-muted);margin:4px 0 10px;">${_('next_lesson')}: ${escapeHtml(item.lesson.title)}</p>
+      <div class="progress-bar"><div class="progress-fill" style="width:${Number(item.progress || 0)}%"></div></div>
+      <button class="btn-primary" style="margin-top:12px;font-size:13px;" onclick="loadLesson(${Number(item.lesson.id)})">${_('continue_btn')}</button>
+    </div>`;
+  } catch (e) { el.innerHTML = ''; }
+}
+
 // ---- HOME ----
 async function loadHome() {
+  renderOnboarding();
+  loadContinueLearning();
   // Skeleton loaders
   document.getElementById('roadmaps-list').innerHTML = Array(4).fill(`
     <div style="min-width:130px;max-width:155px;scroll-snap-align:start;flex-shrink:0;">
@@ -411,16 +504,17 @@ async function loadHome() {
   // Horizontal scrollable roadmap cards
   const rl = document.getElementById('roadmaps-list');
   rl.innerHTML = roadmaps.map(r => {
-    const color = r.color || '#6C5CE7';
+    const color = safeColor(r.color);
+    const rid = Number(r.id);
     return `
-    <div style="min-width:130px;max-width:155px;scroll-snap-align:start;cursor:pointer;flex-shrink:0;" onclick="loadRoadmapCourses(${r.id}, '${(r.icon + ' ' + r.title).replace(/'/g, "\\'")}')">
+    <div style="min-width:130px;max-width:155px;scroll-snap-align:start;cursor:pointer;flex-shrink:0;" onclick="loadRoadmapCourses(${rid}, (roadmapMap[${rid}]?.icon || '') + ' ' + (roadmapMap[${rid}]?.title || ''))">
       <div class="card card-elevated" style="padding:16px 12px;text-align:center;position:relative;overflow:hidden;min-height:115px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
         <div style="position:absolute;top:-20px;right:-20px;width:70px;height:70px;border-radius:50%;background:${color};opacity:0.08;"></div>
         <div style="width:50px;height:50px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:8px;background:${color}15;flex-shrink:0;">
-          ${r.icon}
+          ${escapeHtml(r.icon)}
         </div>
-        <h3 style="font-size:12px;font-weight:700;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.4;">${r.title}</h3>
-        <p style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;line-height:1.4;margin-top:2px;">${r.description || ''}</p>
+        <h3 style="font-size:12px;font-weight:700;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.4;">${escapeHtml(r.title)}</h3>
+        <p style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;line-height:1.4;margin-top:2px;">${escapeHtml(r.description || '')}</p>
       </div>
     </div>`;
   }).join('');
@@ -431,25 +525,27 @@ async function loadHome() {
 
 function courseCard(c) {
   const rm = roadmapMap[c.roadmap_id];
-  const cardColor = rm ? rm.color : '#6C5CE7';
-  const cardIcon = rm ? rm.icon : '📖';
+  const cardColor = safeColor(rm ? rm.color : '#6C5CE7');
+  const cardIcon = escapeHtml(rm ? rm.icon : '📖');
   const diffColor = difficultyColor(c.difficulty);
+  const thumbnailUrl = safeUrl(c.thumbnail_url);
   return `
-    <div class="card card-elevated" style="cursor:pointer;padding:14px;" onclick="loadCourse(${c.id})">
+    <div class="card card-elevated" style="cursor:pointer;padding:14px;" onclick="loadCourse(${Number(c.id)})">
       <div style="display:flex;gap:12px;align-items:center;">
-        <div style="width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;position:relative;overflow:hidden;${c.thumbnail_url ? '' : 'background:' + cardColor + '12;'}">
-          ${c.thumbnail_url ? `<img src="${c.thumbnail_url}" style="width:100%;height:100%;object-fit:cover;border-radius:14px;">` : cardIcon}
+        <div style="width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;position:relative;overflow:hidden;${thumbnailUrl ? '' : 'background:' + cardColor + '12;'}">
+          ${thumbnailUrl ? `<img src="${thumbnailUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:14px;">` : cardIcon}
         </div>
         <div style="flex:1;min-width:0;">
-          <h3 style="font-size:14px;font-weight:700;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.title}</h3>
-          <p style="font-size:11px;color:var(--text-secondary);line-height:1.4;margin-bottom:8px;" class="line-clamp-2">${c.description || ''}</p>
+          <h3 style="font-size:14px;font-weight:700;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(c.title)}</h3>
+          <p style="font-size:11px;color:var(--text-secondary);line-height:1.4;margin-bottom:8px;" class="line-clamp-2">${escapeHtml(c.description || '')}</p>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <span class="badge badge-blue" style="font-size:11px;padding:4px 10px;">${formatMMK(c.price_mmk)}</span>
             <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text-muted);font-weight:600;">
               <span class="difficulty-dot" style="background:${diffColor};"></span>
-              ${difficultyLabel(c.difficulty)}
+              ${escapeHtml(difficultyLabel(c.difficulty))}
             </span>
-            ${c.duration_hours ? `<span style="font-size:10px;color:var(--text-muted);">⏱ ${c.duration_hours}hr</span>` : ''}
+            ${c.duration_hours ? `<span style="font-size:10px;color:var(--text-muted);">⏱ ${Number(c.duration_hours)}hr</span>` : ''}
+            ${c.updated_at || c.created_at ? `<span style="font-size:10px;color:var(--text-muted);">🆕 ${new Date(c.updated_at || c.created_at).toLocaleDateString(lang === 'my' ? 'my-MM' : 'en-US')}</span>` : ''}
           </div>
         </div>
         <svg width="16" height="16" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;"><path d="M6 4l4 4-4 4"/></svg>
@@ -465,7 +561,7 @@ function loadAllCourses() {
 
 async function loadRoadmapCourses(roadmapId, title) {
   showScreen('roadmap-courses');
-  document.getElementById('roadmap-title').innerHTML = title;
+  document.getElementById('roadmap-title').textContent = title;
   document.getElementById('roadmap-courses-list').innerHTML = Array(3).fill(`
     <div class="card" style="padding:14px;">
       <div style="display:flex;gap:12px;align-items:center;">
@@ -498,7 +594,7 @@ function handleSearch(q) {
     }
     if (r.lessons.length > 0) {
       html += `<p class="text-xs font-bold opacity-60 mb-2 mt-4">${_('search_lessons')}</p>`;
-      html += r.lessons.map(l => `<div class="card p-3 cursor-pointer" onclick="loadCourse(${l.course_id})"><p class="text-sm font-medium">${l.title}</p><p class="text-xs opacity-50">${l.course_title || ''}</p></div>`).join('');
+      html += r.lessons.map(l => `<div class="card p-3 cursor-pointer" onclick="loadCourse(${l.course_id})"><p class="text-sm font-medium">${escapeHtml(l.title)}</p><p class="text-xs opacity-50">${escapeHtml(l.course_title || '')}</p></div>`).join('');
     }
     if (!r.courses.length && !r.lessons.length) html = `<div class="text-center py-8 opacity-50"><p>${_('no_results')}</p></div>`;
     el.innerHTML = html;
@@ -552,8 +648,8 @@ async function loadCourse(id) {
   const avgRating = reviews.length > 0 ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : null;
 
   const rm = roadmapMap[course.roadmap_id];
-  const heroColor = rm ? rm.color : '#6C5CE7';
-  const heroIcon = rm ? rm.icon : '📖';
+  const heroColor = safeColor(rm ? rm.color : '#6C5CE7');
+  const heroIcon = escapeHtml(rm ? rm.icon : '📖');
 
   let html = `
     <!-- Course Hero -->
@@ -563,17 +659,18 @@ async function loadCourse(id) {
       <div style="position:relative;z-index:1;">
         <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.2);backdrop-filter:blur(10px);padding:6px 14px;border-radius:99px;margin-bottom:14px;">
           <span style="font-size:14px;">${heroIcon}</span>
-          <span style="font-size:12px;color:#fff;font-weight:600;">${rm ? rm.title : ''}</span>
+          <span style="font-size:12px;color:#fff;font-weight:600;">${escapeHtml(rm ? rm.title : '')}</span>
         </div>
-        <h1 style="font-size:20px;font-weight:800;color:#fff;margin-bottom:6px;line-height:1.35;">${course.title}</h1>
-        <p style="font-size:12px;color:rgba(255,255,255,0.85);line-height:1.6;">${course.description || ''}</p>
+        <h1 style="font-size:20px;font-weight:800;color:#fff;margin-bottom:6px;line-height:1.35;">${escapeHtml(course.title)}</h1>
+        <p style="font-size:12px;color:rgba(255,255,255,0.85);line-height:1.6;">${escapeHtml(course.description || '')}</p>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px;">
           <span style="background:rgba(255,255,255,0.2);backdrop-filter:blur(10px);color:#fff;padding:6px 14px;border-radius:99px;font-size:13px;font-weight:700;">${formatMMK(course.price_mmk)}</span>
           <span style="display:inline-flex;align-items:center;gap:4px;color:rgba(255,255,255,0.9);font-size:12px;font-weight:600;">
             <span class="difficulty-dot" style="background:${difficultyColor(course.difficulty)};box-shadow:0 0 6px ${difficultyColor(course.difficulty)};"></span>
-            ${difficultyLabel(course.difficulty)}
+            ${escapeHtml(difficultyLabel(course.difficulty))}
           </span>
-          ${course.duration_hours ? `<span style="color:rgba(255,255,255,0.8);font-size:12px;">⏱ ${course.duration_hours} ${lang === 'my' ? 'နာရီ' : 'hr'}</span>` : ''}
+          ${course.duration_hours ? `<span style="color:rgba(255,255,255,0.8);font-size:12px;">⏱ ${Number(course.duration_hours)} ${lang === 'my' ? 'နာရီ' : 'hr'}</span>` : ''}
+          ${course.updated_at || course.created_at ? `<span style="color:rgba(255,255,255,0.8);font-size:12px;">🆕 ${new Date(course.updated_at || course.created_at).toLocaleDateString(lang === 'my' ? 'my-MM' : 'en-US')}</span>` : ''}
           ${avgRating ? `<span style="color:rgba(255,255,255,0.9);font-size:12px;">⭐ ${avgRating} (${reviews.length})</span>` : ''}
         </div>
       </div>
@@ -592,8 +689,8 @@ async function loadCourse(id) {
         ${progressPct === 100 && !cert ? `<button class="btn-primary" style="margin-top:14px;" onclick="generateCert(${id})">${_('get_cert')}</button>` : ''}
         ${cert ? `<div style="margin-top:14px;padding:16px;border-radius:16px;background:linear-gradient(135deg,#00B894,#55EFC4);text-align:center;">
           <p style="font-size:14px;font-weight:700;color:#fff;">${_('cert_earned')}</p>
-          <p style="font-size:12px;color:rgba(255,255,255,0.85);margin-top:4px;">${_('cert_number')}: ${cert.certificate_number}</p>
-          <button class="btn-ghost" style="margin-top:10px;background:rgba(255,255,255,0.25);color:#fff;" onclick="viewCertificate('${cert.certificate_number}', '${course.title}')">${_('view_cert')}</button>
+          <p style="font-size:12px;color:rgba(255,255,255,0.85);margin-top:4px;">${_('cert_number')}: ${escapeHtml(cert.certificate_number)}</p>
+          <button class="btn-ghost" style="margin-top:10px;background:rgba(255,255,255,0.25);color:#fff;" onclick="viewCertificate(JSON.parse(decodeURIComponent('${jsonArg(cert.certificate_number)}')), JSON.parse(decodeURIComponent('${jsonArg(course.title)}')))">${_('view_cert')}</button>
         </div>` : ''}
       </div>`;
   }
@@ -611,20 +708,20 @@ async function loadCourse(id) {
       html += `<div class="card" style="margin-bottom:12px;">
         <div style="padding:14px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="this.nextElementSibling.classList.toggle('hidden')">
           <div style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:rgba(108,92,231,0.1);color:var(--primary);">${mi + 1}</div>
-          <span style="flex:1;font-size:14px;font-weight:700;">${m.title}</span>
+          <span style="flex:1;font-size:14px;font-weight:700;">${escapeHtml(m.title)}</span>
           ${isEnrolled ? `<span style="font-size:12px;color:var(--text-muted);font-weight:600;">${mComplete}/${m.lessons.length}</span>` : `<span style="font-size:12px;color:var(--text-muted);">${m.lessons.length} ${_('items')}</span>`}
           <svg width="14" height="14" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round"><path d="M3 5l4 4 4-4"/></svg>
         </div>
         <div style="border-top:1px solid var(--border);padding:6px 16px 10px;">`;
       m.lessons.forEach(l => {
-        const locked = !isEnrolled;
+        const locked = !isEnrolled && !l.is_preview;
         html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:${locked?'default':'pointer'};opacity:${locked?'0.45':'1'};" onclick="${locked ? '' : `loadLesson(${l.id})`}">
           ${l.completed ? '<div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#00B894,#55EFC4);display:flex;align-items:center;justify-content:center;"><svg width="12" height="12" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M2 6l3 3 5-5"/></svg></div>'
             : locked ? '<div style="width:22px;height:22px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;">🔒</div>'
             : '<div style="width:22px;height:22px;border-radius:50%;border:2px solid var(--border);"></div>'}
-          <span style="flex:1;font-size:13px;font-weight:500;">${l.title}</span>
+          <span style="flex:1;font-size:13px;font-weight:500;">${escapeHtml(l.title)}</span>
           ${l.video_url ? '<span style="font-size:11px;opacity:0.5;">🎬</span>' : ''}
-          ${l.file_url ? '<span style="font-size:11px;opacity:0.5;">📎</span>' : ''}
+          ${l.is_preview ? `<span class="badge badge-blue" style="font-size:9px;padding:2px 6px;">${_('preview')}</span>` : ''}${l.file_url ? '<span style="font-size:11px;opacity:0.5;">📎</span>' : ''}
         </div>`;
       });
       html += `</div></div>`;
@@ -641,11 +738,11 @@ async function loadCourse(id) {
       <button class="btn-primary" style="margin-top:10px;font-size:14px;" onclick="postDiscussion(${id})">${_('send')}</button></div>`;
     html += discussions.map(d => `<div class="card" style="padding:14px;margin-bottom:10px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:700;">${(d.first_name || d.username || 'U')[0]}</div>
-        <span style="font-size:13px;font-weight:700;">${d.first_name || d.username || 'User'}</span>
+        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:700;">${safeInitial(d.first_name || d.username)}</div>
+        <span style="font-size:13px;font-weight:700;">${escapeHtml(d.first_name || d.username || 'User')}</span>
         <span style="font-size:11px;color:var(--text-muted);margin-left:auto;">${timeAgo(d.created_at)}</span>
       </div>
-      <p style="font-size:14px;line-height:1.6;color:var(--text-secondary);">${d.message}</p>
+      <p style="font-size:14px;line-height:1.6;color:var(--text-secondary);">${escapeHtml(d.message)}</p>
     </div>`).join('');
     if (discussions.length === 0) html += `<div class="empty-state" style="padding:24px;"><span style="font-size:36px;">💬</span><p class="empty-state-desc">${_('no_discussions')}</p></div>`;
   }
@@ -662,11 +759,11 @@ async function loadCourse(id) {
   }
   html += reviews.map(r => `<div class="card" style="padding:14px;margin-bottom:10px;">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-      <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#FDCB6E,#F8A500);display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:700;">${(r.first_name || r.username || 'U')[0]}</div>
-      <span style="font-size:13px;font-weight:700;">${r.first_name || r.username || 'User'}</span>
+      <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#FDCB6E,#F8A500);display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:700;">${safeInitial(r.first_name || r.username)}</div>
+      <span style="font-size:13px;font-weight:700;">${escapeHtml(r.first_name || r.username || 'User')}</span>
       <span style="font-size:13px;color:#F8A500;">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span>
     </div>
-    <p style="font-size:13px;color:var(--text-secondary);line-height:1.5;">${r.comment || ''}</p>
+    <p style="font-size:13px;color:var(--text-secondary);line-height:1.5;">${escapeHtml(r.comment || '')}</p>
   </div>`).join('');
   if (reviews.length === 0) html += `<div class="empty-state" style="padding:24px;"><span style="font-size:36px;">⭐</span><p class="empty-state-desc">${_('no_reviews')}</p></div>`;
   html += `</div>`;
@@ -752,18 +849,18 @@ async function loadLesson(id) {
     let quiz = null;
     try { quiz = await api(`/quizzes/lesson/${id}`); } catch (e) {}
 
-    let html = `<h2 class="text-lg font-bold mb-3">${lesson.title}</h2>`;
+    let html = `<h2 class="text-lg font-bold mb-3">${escapeHtml(lesson.title)}</h2>`;
     if (lesson.video_url) {
       const embedUrl = lesson.video_url.includes('youtube.com') || lesson.video_url.includes('youtu.be')
         ? `https://www.youtube.com/embed/${lesson.video_url.split(/[=/]/).pop()}`
         : lesson.video_url;
-      html += `<div class="rounded-2xl overflow-hidden mb-4"><iframe src="${embedUrl}" class="w-full" style="aspect-ratio:16/9;" frameborder="0" allowfullscreen></iframe></div>`;
+      html += `<div class="rounded-2xl overflow-hidden mb-4"><iframe src="${safeUrl(embedUrl)}" class="w-full" style="aspect-ratio:16/9;" frameborder="0" allowfullscreen></iframe></div>`;
     }
     if (lesson.content) {
-      html += `<div class="card p-4 mb-4 text-sm leading-relaxed">${lesson.content.replace(/\n/g, '<br>')}</div>`;
+      html += `<div class="card p-4 mb-4 text-sm leading-relaxed">${escapeHtml(lesson.content).replace(/\n/g, '<br>')}</div>`;
     }
     if (lesson.file_url) {
-      html += `<a href="${lesson.file_url}" target="_blank" class="card p-3 mb-4 flex items-center gap-2"><span>📎</span><span class="text-sm font-medium">${_('file_download')}</span></a>`;
+      html += `<a href="${safeUrl(lesson.file_url)}" target="_blank" rel="noopener noreferrer" class="card p-3 mb-4 flex items-center gap-2"><span>📎</span><span class="text-sm font-medium">${_('file_download')}</span></a>`;
     }
     html += `<div class="flex gap-2 mt-4">
       <button class="btn-primary flex-1" onclick="toggleLessonComplete(${id}, ${lesson.course_id}, ${!lesson.completed})">
@@ -772,7 +869,7 @@ async function loadLesson(id) {
     </div>`;
     if (quiz) {
       html += `<div class="card p-4 mt-4">
-        <h3 class="font-bold text-sm mb-1">📝 ${quiz.title}</h3>
+        <h3 class="font-bold text-sm mb-1">📝 ${escapeHtml(quiz.title)}</h3>
         <p class="text-xs opacity-60 mb-3">${_('quiz_pass')} - ${quiz.passing_score}% | ${quiz.questions.length} ${_('quiz_questions')}</p>
         ${quiz.lastAttempt ? `<div class="p-2 rounded-lg mb-3 text-sm ${quiz.lastAttempt.passed ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}">
           ${_('quiz_last')}: ${quiz.lastAttempt.score}% ${quiz.lastAttempt.passed ? `(${_('quiz_passed')})` : `(${_('quiz_failed')})`}
@@ -802,15 +899,15 @@ async function startQuiz(quizId) {
   showScreen('quiz');
   const quiz = currentData.quiz;
   const el = document.getElementById('quiz-detail');
-  let html = `<h2 class="text-lg font-bold mb-4">📝 ${quiz.title}</h2>`;
+  let html = `<h2 class="text-lg font-bold mb-4">📝 ${escapeHtml(quiz.title)}</h2>`;
   quiz.questions.forEach((q, i) => {
     html += `<div class="card p-4 mb-3">
-      <p class="font-medium text-sm mb-3">${i + 1}. ${q.question}</p>
+      <p class="font-medium text-sm mb-3">${i + 1}. ${escapeHtml(q.question)}</p>
       <div class="space-y-2">
         ${['a', 'b', 'c', 'd'].filter(opt => q['option_' + opt]).map(opt => `
           <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-gray-50">
             <input type="radio" name="q_${q.id}" value="${opt}" class="accent-indigo-500">
-            <span class="text-sm">${q['option_' + opt]}</span>
+            <span class="text-sm">${escapeHtml(q['option_' + opt])}</span>
           </label>
         `).join('')}
       </div>
@@ -865,7 +962,7 @@ async function startPayment(courseId) {
   }
 
   let html = `<h2 class="text-base font-bold mb-1">${_('payment_title')}</h2>
-    <p class="text-xs opacity-60 mb-2">${course?.title || ''} - ${formatMMK(course?.price_mmk)}${course?.price_usdt ? ` / $${course.price_usdt} USDT` : ''}</p>
+    <p class="text-xs opacity-60 mb-2">${escapeHtml(course?.title || '')} - ${formatMMK(course?.price_mmk)}${course?.price_usdt ? ` / $${course.price_usdt} USDT` : ''}</p>
     <div class="card p-3 mb-4">
       <div class="flex gap-2">
         <input class="form-input flex-1" style="border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 12px;font-size:13px;" id="coupon-input" placeholder="${_('coupon_placeholder')}" />
@@ -891,7 +988,7 @@ async function startPayment(courseId) {
       html += `<div class="card p-4 cursor-pointer border-2 border-transparent" id="pm-${m.id}" onclick="selectPaymentMethod(${m.id})">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: #f1f5f9;">💰</div>
-          <div class="flex-1"><h3 class="font-bold text-sm">${m.name}</h3>${m.account_name ? `<p class="text-xs opacity-60">${m.account_name}</p>` : ''}</div>
+          <div class="flex-1"><h3 class="font-bold text-sm">${escapeHtml(m.name)}</h3>${m.account_name ? `<p class="text-xs opacity-60">${escapeHtml(m.account_name)}</p>` : ''}</div>
           <div class="w-5 h-5 rounded-full border-2 border-gray-300" id="pm-radio-${m.id}"></div>
         </div>
       </div>`;
@@ -899,6 +996,7 @@ async function startPayment(courseId) {
     html += `</div>
       <div id="payment-detail" class="hidden mt-4">
         <div class="card p-4 mb-4" id="payment-method-info"></div>
+        <div class="card p-4 mb-4"><p class="text-sm font-bold mb-2">${_('checklist_title')}</p><ul class="text-xs opacity-70" style="line-height:1.9;list-style:disc;padding-left:18px;"><li>${_('checklist_1')}</li><li>${_('checklist_2')}</li><li>${_('checklist_3')}</li></ul></div>
         <div class="file-upload" id="screenshot-upload" onclick="document.getElementById('screenshot-file').click()">
           <input type="file" id="screenshot-file" accept="image/*" onchange="previewScreenshot(this)">
           <p class="text-3xl mb-2">📸</p>
@@ -948,7 +1046,7 @@ async function applyCoupon(courseId) {
     }
   } catch (e) {
     const msg = e.message || _('coupon_invalid');
-    resultEl.innerHTML = `<span class="text-red-500">${msg}</span>`;
+    resultEl.innerHTML = `<span class="text-red-500">${escapeHtml(msg)}</span>`;
     currentData.couponData = null;
   }
 }
@@ -984,11 +1082,11 @@ function selectPaymentMethod(id) {
   api('/payment-methods').then(methods => {
     const m = methods.find(m => m.id === id);
     if (!m) return;
-    let info = `<h3 class="font-bold text-sm mb-3">${m.name}</h3>`;
-    if (m.qr_image_url) info += `<img src="${m.qr_image_url}" class="w-48 mx-auto rounded-xl mb-3">`;
-    if (m.account_number) info += `<div class="flex justify-between py-2 border-b" style="border-color: #f1f5f9;"><span class="text-xs opacity-60">${_('account_number')}</span><span class="text-sm font-medium">${m.account_number}</span></div>`;
-    if (m.account_name) info += `<div class="flex justify-between py-2 border-b" style="border-color: #f1f5f9;"><span class="text-xs opacity-60">${_('account_name')}</span><span class="text-sm font-medium">${m.account_name}</span></div>`;
-    if (m.instructions) info += `<div class="mt-3 p-3 rounded-xl text-xs" style="background: #f8fafc;">${m.instructions}</div>`;
+    let info = `<h3 class="font-bold text-sm mb-3">${escapeHtml(m.name)}</h3>`;
+    if (m.qr_image_url) info += `<img src="${safeUrl(m.qr_image_url)}" class="w-48 mx-auto rounded-xl mb-3" alt="">`;
+    if (m.account_number) info += `<div class="flex justify-between py-2 border-b" style="border-color: #f1f5f9;"><span class="text-xs opacity-60">${_('account_number')}</span><span class="text-sm font-medium">${escapeHtml(m.account_number)}</span></div>`;
+    if (m.account_name) info += `<div class="flex justify-between py-2 border-b" style="border-color: #f1f5f9;"><span class="text-xs opacity-60">${_('account_name')}</span><span class="text-sm font-medium">${escapeHtml(m.account_name)}</span></div>`;
+    if (m.instructions) info += `<div class="mt-3 p-3 rounded-xl text-xs" style="background: #f8fafc;">${escapeHtml(m.instructions)}</div>`;
     info += `<div class="mt-3 p-3 rounded-xl text-center" style="background: #f0fdf4;"><p class="text-sm font-bold text-green-700">${formatMMK(currentData.course?.price_mmk)}</p><p class="text-xs text-green-600">${_('amount_to_pay')}</p></div>`;
     document.getElementById('payment-method-info').innerHTML = info;
   });
@@ -1016,7 +1114,8 @@ async function submitPayment() {
   fd.append('course_id', currentData.paymentCourseId);
   fd.append('payment_method_id', selectedPaymentMethodId);
   try {
-    await fetch(API + '/payments', { method: 'POST', headers: { 'X-Telegram-Init-Data': initData }, body: fd });
+    const res = await fetch(API + '/payments', { method: 'POST', headers: { 'X-Telegram-Init-Data': initData }, body: fd });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || err.error || 'Payment failed'); }
     document.getElementById('payment-flow').innerHTML = `
       <div class="text-center py-12">
         <p class="text-5xl mb-4">✅</p>
@@ -1024,7 +1123,7 @@ async function submitPayment() {
         <p class="text-sm opacity-60">${_('submitted_msg')}</p>
         <button class="btn-outline mt-6" onclick="showScreen('home')">${_('go_home')}</button>
       </div>`;
-  } catch (e) { showToast(_('error_occurred')); btn.disabled = false; btn.textContent = _('submit_payment'); }
+  } catch (e) { showToast(e.message || _('error_occurred')); btn.disabled = false; btn.textContent = _('submit_payment'); }
 }
 
 // ---- CRYPTO PAYMENT ----
@@ -1078,13 +1177,13 @@ async function selectCryptoCoin(coin) {
       flowEl.innerHTML = `
         <div class="card p-4 mb-4 text-center">
           <p class="text-sm font-medium mb-2">${_('send_exact')}</p>
-          <p class="text-2xl font-bold mb-1" style="color: #6366f1;">${result.pay_amount} ${coin.toUpperCase()}</p>
-          <p class="text-xs opacity-50 mb-3">≈ $${result.price_amount}</p>
+          <p class="text-2xl font-bold mb-1" style="color: #6366f1;">${escapeHtml(result.pay_amount)} ${escapeHtml(coin.toUpperCase())}</p>
+          <p class="text-xs opacity-50 mb-3">≈ $${escapeHtml(result.price_amount)}</p>
           <div class="p-3 rounded-xl mb-3 text-left" style="background: #f8fafc;">
             <p class="text-xs opacity-60 mb-1">${_('wallet_address')}</p>
-            <p class="text-xs font-mono break-all font-medium">${result.pay_address}</p>
+            <p class="text-xs font-mono break-all font-medium">${escapeHtml(result.pay_address)}</p>
           </div>
-          <button class="btn-outline text-xs" onclick="copyAddress('${result.pay_address}')">${_('copy_address')}</button>
+          <button class="btn-outline text-xs" onclick="copyAddress(JSON.parse(decodeURIComponent('${jsonArg(result.pay_address)}')))">${_('copy_address')}</button>
         </div>
         <div class="card p-4 mb-4">
           <div class="flex items-center justify-between">
@@ -1116,7 +1215,7 @@ async function selectCryptoCoin(coin) {
           flowEl.innerHTML = `<div class="text-center py-12">
             <p class="text-5xl mb-4">🎉</p>
             <h2 class="text-lg font-bold mb-2">${_('crypto_finished')}</h2>
-            <p class="text-sm opacity-60">${result.pay_amount} ${coin.toUpperCase()}</p>
+            <p class="text-sm opacity-60">${escapeHtml(result.pay_amount)} ${escapeHtml(coin.toUpperCase())}</p>
             <button class="btn-primary mt-6" onclick="showScreen('home')">${_('go_home')}</button>
           </div>`;
         } else if (ps === 'failed' || ps === 'expired') {
@@ -1189,6 +1288,8 @@ async function loadBookmarks() {
 
 // ---- PROFILE ----
 async function loadProfile() {
+  const guideBtn = document.getElementById('show-guide-btn');
+  if (guideBtn) guideBtn.textContent = _('show_guide');
   if (tgUser) {
     document.getElementById('profile-avatar').textContent = (tgUser.first_name || '?')[0];
     document.getElementById('profile-name').textContent = tgUser.first_name || _('profile_user');
@@ -1197,6 +1298,17 @@ async function loadProfile() {
   if (!initData) return;
   try {
     const payments = await api('/my-payments');
+    const supportWrap = document.getElementById('support-link-wrap');
+    const supportLink = document.getElementById('support-link');
+    if (supportWrap && supportLink && appSettings.support_url) { supportLink.href = safeUrl(appSettings.support_url); supportWrap.classList.remove('hidden'); }
+    let certificates = [];
+    try { certificates = await api('/my-certificates'); } catch (e) {}
+    const certEl = document.getElementById('my-certificates');
+    if (certEl) certEl.innerHTML = certificates.length ? certificates.map(c => `<div class="card" style="padding:14px;">
+      <p style="font-size:14px;font-weight:700;">${escapeHtml(c.courses?.title || '')}</p>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:3px;">${_('cert_number')}: ${escapeHtml(c.certificate_number)}</p>
+      <button class="btn-outline mt-3" style="font-size:12px;" onclick="requestCertificateVerification('${escapeAttr(c.certificate_number)}')">📜 Request bot verification</button>
+    </div>`).join('') : `<div class="empty-state"><span class="empty-state-icon">🎓</span><p class="empty-state-desc">No certificates yet</p></div>`;
     let cryptoPayments = [];
     try { cryptoPayments = await api('/my-crypto-payments'); } catch (e) {}
     const el = document.getElementById('payment-history');
@@ -1205,12 +1317,12 @@ async function loadProfile() {
       html += payments.map(p => `<div class="card" style="padding:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <div>
-            <p style="font-size:14px;font-weight:700;">${p.courses?.title || ''}</p>
+            <p style="font-size:14px;font-weight:700;">${escapeHtml(p.courses?.title || '')}</p>
             <p style="font-size:12px;color:var(--text-muted);margin-top:3px;">${timeAgo(p.created_at)}</p>
           </div>
           ${statusBadge(p.status)}
         </div>
-        ${p.admin_note ? `<p style="font-size:12px;color:var(--text-secondary);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">📝 ${p.admin_note}</p>` : ''}
+        ${p.admin_note ? `<p style="font-size:12px;color:var(--text-secondary);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">📝 ${escapeHtml(p.admin_note)}</p>` : ''}
       </div>`).join('');
     }
     if (cryptoPayments.length > 0) {
@@ -1221,10 +1333,10 @@ async function loadProfile() {
         return `<div class="card" style="padding:14px;">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div>
-              <p style="font-size:14px;font-weight:700;">${p.courses?.title || ''}</p>
-              <p style="font-size:12px;color:var(--text-muted);margin-top:3px;">${p.pay_amount} ${(p.pay_currency || '').toUpperCase()} · ${timeAgo(p.created_at)}</p>
+              <p style="font-size:14px;font-weight:700;">${escapeHtml(p.courses?.title || '')}</p>
+              <p style="font-size:12px;color:var(--text-muted);margin-top:3px;">${escapeHtml(p.pay_amount)} ${escapeHtml((p.pay_currency || '').toUpperCase())} · ${timeAgo(p.created_at)}</p>
             </div>
-            <span class="badge ${stCls}">${stLabel}</span>
+            <span class="badge ${stCls}">${escapeHtml(stLabel)}</span>
           </div>
         </div>`;
       }).join('');
@@ -1235,6 +1347,13 @@ async function loadProfile() {
 }
 
 // ---- CERTIFICATE ----
+async function requestCertificateVerification(certNumber) {
+  try {
+    await api('/certificates/request-verification', { method: 'POST', body: JSON.stringify({ certificate_number: certNumber }) });
+    showToast('Certificate verification request sent to admin');
+  } catch (e) { showToast(e.message || _('error_occurred')); }
+}
+
 async function generateCert(courseId) {
   try {
     const cert = await api(`/certificates/generate/${courseId}`, { method: 'POST' });
@@ -1255,13 +1374,13 @@ function viewCertificate(certNumber, courseTitle) {
       <h2 style="font-size:20px;font-weight:800;color:var(--primary);margin-bottom:4px;">${_('cert_title')}</h2>
       <p style="font-size:12px;color:var(--text-muted);letter-spacing:2px;margin-bottom:24px;">${_('cert_subtitle')}</p>
       <p style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">${_('cert_for')}</p>
-      <h3 style="font-size:22px;font-weight:800;margin-bottom:4px;">${user.first_name || 'Student'} ${user.last_name || ''}</h3>
+      <h3 style="font-size:22px;font-weight:800;margin-bottom:4px;">${escapeHtml(user.first_name || 'Student')} ${escapeHtml(user.last_name || '')}</h3>
       <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">${_('cert_awarded')}</p>
       <div style="padding:14px;border-radius:var(--radius-sm);background:linear-gradient(135deg,rgba(108,92,231,0.06),rgba(0,206,201,0.06));margin-bottom:20px;">
-        <p style="font-size:16px;font-weight:700;color:var(--primary);">${courseTitle}</p>
+        <p style="font-size:16px;font-weight:700;color:var(--primary);">${escapeHtml(courseTitle)}</p>
       </div>
       <p style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">${_('cert_completed')}</p>
-      <p style="font-size:12px;color:var(--text-muted);">${_('cert_number')}: ${certNumber}</p>
+      <p style="font-size:12px;color:var(--text-muted);">${_('cert_number')}: ${escapeHtml(certNumber)}</p>
       <p style="font-size:12px;color:var(--text-muted);margin-top:4px;">${_('cert_date')}: ${new Date().toLocaleDateString(lang === 'my' ? 'my-MM' : 'en-US')}</p>
     </div>`;
 }
@@ -1272,6 +1391,17 @@ async function initApp() {
     appSettings = await api('/settings');
     lang = appSettings.language || 'my';
   } catch (e) { lang = 'my'; }
+  if (appSettings.maintenance_mode === 'true') {
+    blockedState(_('maintenance_title'), appSettings.maintenance_message || '');
+    return;
+  }
+  if (!initData) {
+    await logBlockedAccess('missing_telegram_init_data');
+    const url = appSettings.telegram_start_url || (appSettings.bot_username ? `https://t.me/${appSettings.bot_username.replace('@', '')}` : '');
+    const action = url ? `<a class="btn-primary" style="display:block;margin-top:18px;text-decoration:none;" href="${safeUrl(url)}">${_('open_in_telegram_btn')}</a>` : '';
+    blockedState(_('open_in_telegram_title'), _('open_in_telegram_desc'), action);
+    return;
+  }
   applyLanguageUI();
   loadHome();
 }
