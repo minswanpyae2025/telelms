@@ -176,6 +176,7 @@
         <div class="sidebar-item" onclick="switchPage('announcements')" data-page="announcements">📢 ကြေညာချက်များ</div>
         <div class="sidebar-item" onclick="switchPage('users')" data-page="users">👥 အသုံးပြုသူများ</div>
         <div class="sidebar-item" onclick="switchPage('analytics')" data-page="analytics">📈 ခွဲခြမ်းစိတ်ဖြာ</div>
+        <div class="sidebar-item" onclick="switchPage('security')" data-page="security">🛡️ Security</div>
         <div class="sidebar-item" onclick="switchPage('settings')" data-page="settings">⚙️ Settings</div>
       </nav>
       <div class="sidebar-footer">
@@ -287,6 +288,25 @@
       </div>
 
       <!-- Settings Page -->
+      <div id="page-security" class="page hidden">
+        <div class="page-header"><h2>🛡️ Security</h2></div>
+        <div class="stat-card mb-5">
+          <h3 class="font-bold text-base mb-3">Ban Telegram User</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input class="form-input" id="ban-telegram-id" placeholder="Telegram ID">
+            <input class="form-input" id="ban-reason" placeholder="Reason">
+            <button class="btn btn-danger" onclick="banTelegramUser()">Ban User</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div class="stat-card"><h3 class="font-bold text-base mb-3">Banned Users</h3><div id="banned-users-table" class="table-container"></div></div>
+          <div class="stat-card"><h3 class="font-bold text-base mb-3">Recent Security Events</h3><div id="security-events-table" class="table-container"></div></div>
+          <div class="stat-card lg:col-span-2"><h3 class="font-bold text-base mb-3">Banned IP Hashes</h3><div id="banned-ips-table" class="table-container"></div></div>
+          <div class="stat-card lg:col-span-2"><h3 class="font-bold text-base mb-3">Certificate Verification Requests</h3><div id="certificate-requests-table" class="table-container"></div></div>
+          <div class="stat-card lg:col-span-2"><h3 class="font-bold text-base mb-3">Admin Audit Log</h3><div id="audit-log-table" class="table-container"></div></div>
+        </div>
+      </div>
+
       <div id="page-settings" class="page hidden">
         <div class="page-header"><h2>⚙️ App Settings</h2></div>
 
@@ -325,6 +345,24 @@
                 <div class="w-12 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-indigo-500" style="box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);"></div>
               </label>
             </div>
+          </div>
+        </div>
+
+        <!-- Security / Maintenance Config -->
+        <div class="stat-card mb-5">
+          <h3 class="font-bold text-base mb-2">🛠️ Maintenance & Telegram Access</h3>
+          <div class="space-y-4">
+            <label class="flex items-center gap-3"><input type="checkbox" id="toggle-maintenance" onchange="togglePaymentMethod('maintenance_mode', this.checked)"> <span class="font-bold text-sm">Maintenance Mode</span></label>
+            <div><label class="form-label">Maintenance Message</label><input class="form-input" id="maintenance-message" placeholder="Maintenance message"></div>
+            <div><label class="form-label">Bot Username</label><input class="form-input" id="bot-username" placeholder="your_bot_username"></div>
+            <div><label class="form-label">Telegram Start URL</label><input class="form-input" id="telegram-start-url" placeholder="https://t.me/your_bot"></div>
+            <label class="flex items-center gap-3"><input type="checkbox" id="toggle-telegram-only"> <span class="font-bold text-sm">Telegram-only security mode</span></label>
+            <label class="flex items-center gap-3"><input type="checkbox" id="toggle-auto-ban"> <span class="font-bold text-sm">Auto-ban repeated missing initData</span></label>
+            <div><label class="form-label">Auto-ban threshold (10 minutes)</label><input type="number" min="3" class="form-input" id="auto-ban-threshold" placeholder="5"></div>
+            <div><label class="form-label">Support URL</label><input class="form-input" id="support-url" placeholder="https://t.me/support_username"></div>
+            <div><label class="form-label">Certificate Signature Text</label><input class="form-input" id="cert-signature" placeholder="Lann Sa Academy"></div>
+            <div><label class="form-label">Certificate Logo URL</label><input class="form-input" id="cert-logo-url" placeholder="https://.../logo.png"></div>
+            <button class="btn btn-primary" onclick="saveAccessSettings()">💾 Save Access Settings</button>
           </div>
         </div>
 

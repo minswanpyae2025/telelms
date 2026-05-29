@@ -300,6 +300,9 @@
       </div>
     </div>
 
+    <div id="onboarding-card"></div>
+    <div id="continue-learning-section"></div>
+
     <!-- Roadmaps -->
     <div id="roadmaps-section" style="margin-top:16px;">
       <h2 class="section-title" id="roadmaps-title">🗺️ အသက်မွေးလမ်းကြောင်းများ</h2>
@@ -385,6 +388,10 @@
         </div>
       </div>
     </div>
+    <button id="show-guide-btn" class="btn-outline" style="margin-bottom:14px;font-size:12px;" onclick="localStorage.removeItem('lannsa_onboarding_dismissed');showScreen('home')">Guide ပြန်ကြည့်ရန်</button>
+    <div id="support-link-wrap" class="hidden" style="margin-bottom:14px;"><a id="support-link" class="btn-outline" style="font-size:12px;display:block;text-align:center;" target="_blank" rel="noopener">💬 Support / Help</a></div>
+    <h3 class="section-title" style="font-size:15px;">🎓 My Certificates</h3>
+    <div id="my-certificates" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;"></div>
     <h3 class="section-title" style="font-size:15px;">💳 ငွေပေးချေမှု မှတ်တမ်း</h3>
     <div id="payment-history" style="display:flex;flex-direction:column;gap:10px;"></div>
   </div>
